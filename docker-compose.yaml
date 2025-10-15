@@ -175,3 +175,39 @@ services:
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker01:9092,broker02:9092"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.6-alpine
+    container_name: clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      CLICKHOUSE_DB: it4931
+      CLICKHOUSE_USER: it4931
+      CLICKHOUSE_PASSWORD: it4931
+    volumes:
+      # - ./clickhouse/config:/etc/clickhouse-server
+      - clickhouse_data:/var/lib/clickhouse
+      # - ./clickhouse/log:/var/log/clickhouse-server
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+
+  trino-qe:
+    image: trinodb/trino:422
+    container_name: trino-qe
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+    volumes:
+      - ./trino/conf:/etc/trino
+      - ./hdfs/conf/core-site.xml:/etc/hadoop/core-site.xml
+      - ./hdfs/conf/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - ./hive/conf/hive-site.xml:/etc/hive/hive-site.xml
+    ports:
+      - "8082:8080"
+      
+  # redis
+volumes:
+  clickhouse_data:

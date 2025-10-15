@@ -1,0 +1,177 @@
+services:
+  sparkMaster:
+    # image: apache/spark:${SPARK_VERSION}
+    image: it4931-spark:400
+    container_name: sparkMaster
+    ports:
+      - "8080:8080" # Master Web UI
+      - "7077:7077" # Master Port
+    environment:
+      - SPARK_MODE=master
+      - SPARK_MASTER_HOST=sparkMaster
+    volumes:
+      - ./spark/conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
+      - ./spark/conf/core-site.xml:/opt/spark/conf/core-site.xml
+      - ./spark/conf/hdfs-site.xml:/opt/spark/conf/hdfs-site.xml
+      - ./src:/opt/spark/src
+    command: "/opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host sparkMaster"
+  
+  sparkWorker:
+    # image: apache/spark:${SPARK_VERSION}
+    image: it4931-spark:400
+    container_name: sparkWorker
+    ports:
+      - "8081:8081" # Worker Web UI 
+    depends_on:
+      - sparkMaster
+    environment:
+      - SPARK_MASTER_URL=spark://sparkMaster:7077
+    volumes:
+      - ./spark/conf/spark-defaults.conf:/opt/spark/conf/spark-defaults.conf
+      - ./spark/conf/core-site.xml:/opt/spark/conf/core-site.xml
+      - ./spark/conf/hdfs-site.xml:/opt/spark/conf/hdfs-site.xml
+      - ./src:/opt/spark/src
+    command: "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker --webui-port 8081 spark://sparkMaster:7077"
+
+  nameNode:
+    image: apache/hadoop:${HADOOP_VERSION}
+    container_name: nameNode
+    hostname: nameNode
+    user: root
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - ./hdfs/hdfs_namenode:/opt/hadoop/data/namenode
+      - ./hdfs/conf:/opt/hadoop/etc/hadoop
+      - ./hdfs/start-hdfs.sh:/start-hdfs.sh
+    ports:
+      - "9870:9870"
+      - "9000:9000"
+    command: ["/bin/bash", "/start-hdfs.sh"]
+
+  dataNode:
+    image: apache/hadoop:${HADOOP_VERSION}
+    container_name: dataNode
+    hostname: dataNode
+    user: root
+    ports:
+      - "9866:9866"
+    environment:
+      - TZ=Asia/Ho_Chi_Minh
+      - HADOOP_HOME=/opt/hadoop
+    volumes:
+      - ./hdfs/hdfs_datanode:/opt/hadoop/data/datanode
+      - ./hdfs/conf:/opt/hadoop/etc/hadoop
+      - ./hdfs/init-datanode.sh:/init-datanode.sh
+    command: ["/bin/bash", "/init-datanode.sh"]
+    depends_on:
+      - nameNode
+
+  broker01:
+    image: confluentinc/cp-kafka:${KAFKA_VERSION}
+    container_name: broker01
+    environment:
+      # Required for KRaft mode
+      KAFKA_NODE_ID: 1
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER' 
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      # Config for Listeners
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT
+      KAFKA_LISTENERS: INTERNAL://broker01:9092,CONTROLLER://broker01:9093,CLIENT://broker01:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker01:9092,CLIENT://localhost:9092
+      
+      KAFKA_JMX_PORT: 9090
+      KAFKA_LOG_DIRS: /var/log/kafka
+      KAFKA_NUM_PARTITIONS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      CONFLUENT_METRICS_ENABLE: 'false'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    ports:
+      - 9092:9094
+
+  broker02:
+    image: confluentinc/cp-kafka:${KAFKA_VERSION}
+    container_name: broker02
+    environment:
+    # For KRaft mode
+      KAFKA_NODE_ID: 2
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+    # Config for Listeners
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT # Map listener names to security protocols
+      KAFKA_LISTENERS: INTERNAL://broker02:9092,CONTROLLER://broker02:9093,CLIENT://broker02:9094    # 9092 for inter-broker, 9093 for controller, 9094 for clients
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker02:9092,CLIENT://localhost:9094
+
+      KAFKA_JMX_PORT: 9090
+      KAFKA_LOG_DIRS: /var/log/kafka
+      KAFKA_NUM_PARTITIONS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      CONFLUENT_METRICS_ENABLE: 'false'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    ports:
+      - 9094:9094
+
+  k-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: k-ui
+    ports:
+      - 9090:8080
+    depends_on:
+      - broker01
+      - broker02
+    environment:
+      KAFKA_CLUSTERS_0_NAME: it4931-kafka-cluster
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker01:9092,broker02:9092
+      KAFKA_CLUSTERS_0_METRICS_PORT: 9090
+
+  k-connect:
+    image: confluentinc/cp-kafka-connect:${KAFKA_VERSION}
+    container_name: k-connect
+    depends_on:
+      - broker01
+      - broker02
+    ports:
+      - 8083:8083
+    environment:
+    # Required
+      CONNECT_BOOTSTRAP_SERVERS: "broker01:9092,broker02:9092"
+      CONNECT_GROUP_ID: "it4931"
+      CONNECT_CONFIG_STORAGE_TOPIC: "_k-connect-config"
+      CONNECT_OFFSET_STORAGE_TOPIC: "_k-connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "_k-connect-status"
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "k-connect"
+      CONNECT_REST_PORT: 8083
+      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/connectors
+    # ---------------------------------------------
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+    volumes:
+      - ./kafka/kafka-connect/connect-plugins:/connectors
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:${KAFKA_VERSION}
+    container_name: schema-registry
+    depends_on:
+      - broker01
+      - broker02
+    ports:
+      - 9091:8081
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker01:9092,broker02:9092"

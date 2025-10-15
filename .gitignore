@@ -1,0 +1,2 @@
+/.venv
+/kafka/kafka-connect/connect-plugins/*

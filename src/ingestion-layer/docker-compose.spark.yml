@@ -1,0 +1,87 @@
+version: "3.8"
+name: ingestion-spark
+
+networks:
+  ingestion-net:
+    external: true
+    name: ingestion-net
+
+volumes:
+  spark-events:
+  spark-checkpoints:
+  spark-ivy2:
+
+services:
+  spark-master:
+    image: apache/spark:3.5.7-java17-python3
+    container_name: spark-master
+    hostname: spark-master
+    networks: [ingestion-net]
+    ports:
+      - "7077:7077"
+      - "8081:8081"
+    command: [ "/opt/spark/bin/spark-class",
+               "org.apache.spark.deploy.master.Master",
+               "--host", "spark-master", "--port", "7077", "--webui-port", "8081" ]
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_LOG_DIR: /opt/spark/logs
+    volumes:
+      - spark-events:/opt/spark/spark-events
+    restart: unless-stopped
+
+  spark-worker:
+    image: apache/spark:3.5.7-java17-python3
+    container_name: spark-worker
+    hostname: spark-worker
+    networks: [ingestion-net]
+    depends_on: [ spark-master ]
+    ports:
+      - "8083:8083"
+    command: [ "/opt/spark/bin/spark-class",
+               "org.apache.spark.deploy.worker.Worker",
+               "spark://spark-master:7077",
+               "--webui-port", "8083" ]
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      SPARK_WORKER_CORES: "2"
+      SPARK_WORKER_MEMORY: "2g"
+    volumes:
+      - spark-events:/opt/spark/spark-events
+      - ../../data:/data
+      - spark-checkpoints:/checkpoint
+
+    restart: unless-stopped
+
+  spark-streaming:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: spark-streaming
+    depends_on:
+      - spark-master
+      - spark-worker
+    networks: [ingestion-net]
+
+    volumes:
+      - spark-ivy2:/opt/spark/.ivy2/cache
+      - ../../data:/data
+      - spark-checkpoints:/checkpoint
+
+    command:
+      [
+        "/opt/spark/bin/spark-submit",
+        "--master", "spark://spark-master:7077",
+        "--deploy-mode", "client",
+
+        "--packages", "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.1",
+        "--conf","spark.jars.ivy=/opt/spark/.ivy2/cache",
+        "/app/streaming.py",
+
+        "--bootstrap", "broker01:9092,broker02:9092",
+        "--topic", "test-topic",
+        "--input", "/data/yellow_taxi/2025",
+        "--checkpoint", "/checkpoint",
+        "--max-files-per-trigger", "1",
+        "--latest-first"
+      ]

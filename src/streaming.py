@@ -24,7 +24,7 @@ spark = SparkSession.builder \
     .config("spark.jars.packages",
             "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,"
             "org.apache.spark:spark-avro_2.12:3.5.6,"
-            "io.confluent:kafka-avro-serializer:8.0.0") \
+            "io.confluent:kafka-avro-serializer:8.0.0,org.mongodb.spark:mongo-spark-connector_2.12:10.5.0") \
     .getOrCreate()
 
 df = spark \
@@ -47,8 +47,11 @@ deserialized_df = df \
 
 query = deserialized_df \
     .writeStream \
-    .format("console") \
-    .option("truncate", False) \
+    .format("mongodb") \
+    .option("checkpointLocation", "/tmp/spark-mongo-checkpoint") \
+    .option("spark.mongodb.connection.uri", "mongodb://admin:pass@localhost:27017") \
+    .option("spark.mongodb.database", "test") \
+    .option("spark.mongodb.collection", "test") \
     .outputMode("append") \
     .start()
 

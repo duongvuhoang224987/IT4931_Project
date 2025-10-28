@@ -25,6 +25,7 @@ spark = SparkSession.builder \
             "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,"
             "org.apache.spark:spark-avro_2.12:3.5.6,"
             "io.confluent:kafka-avro-serializer:8.0.0,org.mongodb.spark:mongo-spark-connector_2.12:10.5.0") \
+    .config("spark.mongodb.write.connection.uri", "mongodb://root:root@127.0.0.1:27017/") \
     .getOrCreate()
 
 df = spark \
@@ -49,9 +50,9 @@ query = deserialized_df \
     .writeStream \
     .format("mongodb") \
     .option("checkpointLocation", "/tmp/spark-mongo-checkpoint") \
-    .option("spark.mongodb.connection.uri", "mongodb://admin:pass@localhost:27017") \
-    .option("spark.mongodb.database", "test") \
-    .option("spark.mongodb.collection", "test") \
+    .option("spark.mongodb.write.connection.uri", "mongodb://root:root@127.0.0.1:27017/") \
+    .option("spark.mongodb.write.database", "iot_db") \
+    .option("spark.mongodb.write.collection", "device_events") \
     .outputMode("append") \
     .start()
 

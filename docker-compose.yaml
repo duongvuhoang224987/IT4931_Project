@@ -231,8 +231,36 @@ services:
     depends_on:
       - mongo-db
 
+  superset-db:
+    image: postgres:13
+    container_name: superset-db
+    environment:
+      POSTGRES_DB: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_USER: superset
+    volumes:
+      - superset-db:/var/lib/postgresql/data
+  superset-cache:
+    image: redis:8.2.3-alpine3.22
+    container_name: superset-cache
+    volumes:
+      - superset-cache:/data
 
-
+  superset:
+    image: amancevice/superset:5.0.0
+    container_name: superset
+    depends_on:
+      - superset-db
+      - superset-cache
+    environment:
+      MAPBOX_API_KEY: ""
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./superset/superset_config.py:/etc/superset/superset_config.py 
+    #  docker exec -it superset superset-init
 volumes:
   clickhouse_data:
   mongodb_data:
+  superset-db:
+  superset-cache:

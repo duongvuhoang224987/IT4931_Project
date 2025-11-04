@@ -1,2 +1,4 @@
 /.venv
 /kafka/kafka-connect/connect-plugins/*
+/hdfs/hdfs_datanode/*
+/hdfs/hdfs_namenode/*

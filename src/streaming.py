@@ -51,8 +51,8 @@ query = deserialized_df \
     .format("mongodb") \
     .option("checkpointLocation", "/tmp/spark-mongo-checkpoint") \
     .option("spark.mongodb.write.connection.uri", "mongodb://root:root@127.0.0.1:27017/") \
-    .option("spark.mongodb.write.database", "iot_db") \
-    .option("spark.mongodb.write.collection", "device_events") \
+    .option("spark.mongodb.write.database", "taxi") \
+    .option("spark.mongodb.write.collection", "yellow_taxi") \
     .outputMode("append") \
     .start()
 

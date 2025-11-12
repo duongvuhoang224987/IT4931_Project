@@ -10,9 +10,9 @@ import pyarrow.parquet as pq
 BOOTSTRAP_SERVERS = "localhost:9092,localhost:9094"
 SCHEMA_REGISTRY_URL = "http://localhost:9091"
 
-data_file_names = os.listdir("data/yellow_taxi/2025")
-data_file_paths = [os.path.join("data/yellow_taxi/2025", f) for f in data_file_names]
-schema_file_path = "./kafka/schema-registry/yellow_taxi.avsc"
+data_file_names = os.listdir("../data/yellow_taxi/2025")
+data_file_paths = [os.path.join("../data/yellow_taxi/2025", f) for f in data_file_names]
+schema_file_path = "../kafka/schema-registry/yellow_taxi.avsc"
 # -------------------------
 
 def get_SR_client(schema_registry_conf):
@@ -72,7 +72,7 @@ if __name__ == "__main__":
                         )
                         producer.flush()
                         print("Successfull !")
-                        time.sleep(5)
+                        time.sleep(1)
                         
     except KeyboardInterrupt:
         print("Exiting...")

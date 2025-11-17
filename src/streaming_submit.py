@@ -3,8 +3,9 @@ from pyspark.sql.avro.functions import from_avro
 from pyspark.sql.functions import col, expr, when, to_timestamp, window, count, date_format
 import requests
 
-BOOTSTRAP_SERVERS = "localhost:9092,localhost:9094"
-SCHEMA_REGISTRY_URL = "http://localhost:9091"
+# BOOTSTRAP_SERVERS = "broker01:9094,broker02:9094"
+BOOTSTRAP_SERVERS = "broker01:9092,broker02:9092"
+SCHEMA_REGISTRY_URL = "http://schema-registry:8081"
 TOPIC = "test"
 
 avro_options = {
@@ -21,15 +22,11 @@ def get_schema_from_SR(subject):
 
 spark = SparkSession.builder \
     .appName("test streaming job") \
-    .config("spark.jars.repositories", "https://packages.confluent.io/maven/") \
-    .config("spark.jars.packages",
-            "org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.6,"
-            "org.apache.spark:spark-avro_2.13:3.5.6,"
-            "io.confluent:kafka-avro-serializer:8.0.0,org.mongodb.spark:mongo-spark-connector_2.13:10.5.0") \
-    .config("spark.mongodb.write.connection.uri", "mongodb://root:root@127.0.0.1:27017/") \
+    .config("spark.mongodb.write.connection.uri", "mongodb://root:root@mongo-db:27017/") \
     .config("spark.sql.session.timeZone", "America/New_York") \
     .getOrCreate()
 
+print(">>>>>>>>>>>>>>>>>>>> START READ STREAM")
 df = spark \
     .readStream \
     .format("kafka") \
@@ -53,7 +50,7 @@ w_df = raw_des_df.withColumn("pickup_ts", to_timestamp(col("tpep_pickup_datetime
 tripCount = w_df.withWatermark("pickup_ts", "30 minutes") \
     .groupBy(
     window(col("pickup_ts"), "10 minutes").alias("w")
-).agg( \
+).agg(
     count("*").alias("trip_count")
 ).select(
     date_format(col("w.start"), "yyyy-MM-dd HH:mm:ss").alias("window_start"),
@@ -61,11 +58,13 @@ tripCount = w_df.withWatermark("pickup_ts", "30 minutes") \
     col("trip_count")
 )
 
+
+print(">>>>>>>>>>>>>>>>>>>> WRITE RAW ")
 raw_query = raw_des_df \
     .writeStream \
     .format("mongodb") \
     .option("checkpointLocation", "/tmp/spark-mongo-checkpoint/raw") \
-    .option("spark.mongodb.write.connection.uri", "mongodb://root:root@127.0.0.1:27017/") \
+    .option("spark.mongodb.write.connection.uri", "mongodb://root:root@mongo-db:27017/") \
     .option("spark.mongodb.write.database", "taxi") \
     .option("spark.mongodb.write.collection", "yellow_taxi_raw") \
     .outputMode("append") \
@@ -75,7 +74,7 @@ raw_query = raw_des_df \
 def upsert_to_mongo(batch_df, batch_id):
     batch_df.write \
         .format("mongodb") \
-        .option("spark.mongodb.write.connection.uri", "mongodb://root:root@127.0.0.1:27017/") \
+        .option("spark.mongodb.write.connection.uri", "mongodb://root:root@mongo-db:27017/") \
         .option("spark.mongodb.write.database", "taxi") \
         .option("spark.mongodb.write.collection", "yellow_window10min") \
         .option("spark.mongodb.write.operationType", "update") \
@@ -84,7 +83,7 @@ def upsert_to_mongo(batch_df, batch_id):
         .mode("append") \
         .save()
 
-
+print(">>>>>>>>>>>>>>>>>>>> WRITE AGGREGATED")
 tripcount_query = tripCount \
     .writeStream \
     .outputMode("complete") \

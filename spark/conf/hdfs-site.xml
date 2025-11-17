@@ -11,4 +11,16 @@
     <name>dfs.datanode.data.dir</name>
     <value>/opt/hadoop/data/datanode</value>
   </property>
+  <property>
+    <name>dfs.safemode.threshold.pct</name>
+    <value>0.0</value>
+  </property>
+  <property>
+    <name>dfs.safemode.extension</name>
+    <value>0</value>
+  </property>
+  <property>
+    <name>dfs.namenode.safemode.threshold-blocks</name>
+    <value>0</value>
+  </property>
 </configuration>

@@ -23,9 +23,9 @@ spark = SparkSession.builder \
     .appName("test streaming job") \
     .config("spark.jars.repositories", "https://packages.confluent.io/maven/") \
     .config("spark.jars.packages",
-            "org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.6,"
-            "org.apache.spark:spark-avro_2.12:3.5.6,"
-            "io.confluent:kafka-avro-serializer:8.0.0,org.mongodb.spark:mongo-spark-connector_2.12:10.5.0") \
+            "org.apache.spark:spark-sql-kafka-0-10_2.13:3.5.6,"
+            "org.apache.spark:spark-avro_2.13:3.5.6,"
+            "io.confluent:kafka-avro-serializer:8.0.0,org.mongodb.spark:mongo-spark-connector_2.13:10.5.0") \
     .config("spark.mongodb.write.connection.uri", "mongodb://root:root@127.0.0.1:27017/") \
     .config("spark.sql.session.timeZone", "America/New_York") \
     .getOrCreate()

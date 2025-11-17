@@ -74,42 +74,14 @@ services:
     environment:
       # Required for KRaft mode
       KAFKA_NODE_ID: 1
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER' 
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
       KAFKA_PROCESS_ROLES: 'broker,controller'
       # Config for Listeners
       KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT
       KAFKA_LISTENERS: INTERNAL://broker01:9092,CONTROLLER://broker01:9093,CLIENT://broker01:9094
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker01:9092,CLIENT://localhost:9092
-      
-      KAFKA_JMX_PORT: 9090
-      KAFKA_LOG_DIRS: /var/log/kafka
-      KAFKA_NUM_PARTITIONS: 2
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
-      CONFLUENT_METRICS_ENABLE: 'false'
-      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
-    ports:
-      - 9092:9094
-
-  broker02:
-    image: confluentinc/cp-kafka:${KAFKA_VERSION}
-    container_name: broker02
-    environment:
-    # For KRaft mode
-      KAFKA_NODE_ID: 2
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
-      KAFKA_PROCESS_ROLES: 'broker,controller'
-    # Config for Listeners
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT # Map listener names to security protocols
-      KAFKA_LISTENERS: INTERNAL://broker02:9092,CONTROLLER://broker02:9093,CLIENT://broker02:9094    # 9092 for inter-broker, 9093 for controller, 9094 for clients
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker02:9092,CLIENT://localhost:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker01:9092,CLIENT://localhost:9094
 
       KAFKA_JMX_PORT: 9090
       KAFKA_LOG_DIRS: /var/log/kafka
@@ -123,6 +95,34 @@ services:
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
     ports:
       - 9094:9094
+
+  broker02:
+    image: confluentinc/cp-kafka:${KAFKA_VERSION}
+    container_name: broker02
+    environment:
+    # For KRaft mode
+      KAFKA_NODE_ID: 2
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+    # Config for Listeners
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT # Map listener names to security protocols
+      KAFKA_LISTENERS: INTERNAL://broker02:9092,CONTROLLER://broker02:9093,CLIENT://broker02:9095    # 9092 for inter-broker, 9093 for controller, 9094 for clients
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker02:9092,CLIENT://localhost:9095
+
+      KAFKA_JMX_PORT: 9090
+      KAFKA_LOG_DIRS: /var/log/kafka
+      KAFKA_NUM_PARTITIONS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      CONFLUENT_METRICS_ENABLE: 'false'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    ports:
+      - 9095:9095
 
   k-ui:
     image: provectuslabs/kafka-ui:latest

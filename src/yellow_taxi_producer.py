@@ -7,7 +7,7 @@ import time
 import pyarrow.parquet as pq
 
 # -------------------------
-BOOTSTRAP_SERVERS = "localhost:9092,localhost:9094"
+BOOTSTRAP_SERVERS = "localhost:9094,localhost:9095"
 SCHEMA_REGISTRY_URL = "http://localhost:9091"
 
 data_file_names = os.listdir("../data/yellow_taxi/2025")

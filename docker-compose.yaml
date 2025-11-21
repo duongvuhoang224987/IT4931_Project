@@ -77,42 +77,14 @@ services:
     environment:
       # Required for KRaft mode
       KAFKA_NODE_ID: 1
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER' 
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
       KAFKA_PROCESS_ROLES: 'broker,controller'
       # Config for Listeners
       KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT
       KAFKA_LISTENERS: INTERNAL://broker01:9092,CONTROLLER://broker01:9093,CLIENT://broker01:9094
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker01:9092,CLIENT://localhost:9092
-      
-      KAFKA_JMX_PORT: 9090
-      KAFKA_LOG_DIRS: /var/log/kafka
-      KAFKA_NUM_PARTITIONS: 2
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
-      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
-      CONFLUENT_METRICS_ENABLE: 'false'
-      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
-    ports:
-      - 9092:9094
-
-  broker02:
-    image: confluentinc/cp-kafka:${KAFKA_VERSION}
-    container_name: broker02
-    environment:
-    # For KRaft mode
-      KAFKA_NODE_ID: 2
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
-      KAFKA_PROCESS_ROLES: 'broker,controller'
-    # Config for Listeners
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT # Map listener names to security protocols
-      KAFKA_LISTENERS: INTERNAL://broker02:9092,CONTROLLER://broker02:9093,CLIENT://broker02:9094    # 9092 for inter-broker, 9093 for controller, 9094 for clients
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker02:9092,CLIENT://localhost:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker01:9092,CLIENT://localhost:9094
 
       KAFKA_JMX_PORT: 9090
       KAFKA_LOG_DIRS: /var/log/kafka
@@ -126,6 +98,34 @@ services:
       CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
     ports:
       - 9094:9094
+
+  broker02:
+    image: confluentinc/cp-kafka:${KAFKA_VERSION}
+    container_name: broker02
+    environment:
+    # For KRaft mode
+      KAFKA_NODE_ID: 2
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+    # Config for Listeners
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT # Map listener names to security protocols
+      KAFKA_LISTENERS: INTERNAL://broker02:9092,CONTROLLER://broker02:9093,CLIENT://broker02:9095    # 9092 for inter-broker, 9093 for controller, 9094 for clients
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker02:9092,CLIENT://localhost:9095
+
+      KAFKA_JMX_PORT: 9090
+      KAFKA_LOG_DIRS: /var/log/kafka
+      KAFKA_NUM_PARTITIONS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      CONFLUENT_METRICS_ENABLE: 'false'
+      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+    ports:
+      - 9095:9095
 
   k-ui:
     image: provectuslabs/kafka-ui:latest
@@ -211,6 +211,59 @@ services:
     ports:
       - "8082:8080"
       
-  # redis
+  mongo-db:
+    image: mongo:6.0
+    container_name: mongo-db
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - 27017:27017
+
+  mongo-express:
+    image: mongo-express:1.0.2
+    container_name: mongo-express
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: root
+      ME_CONFIG_MONGODB_SERVER: mongo-db
+    ports:
+      - "18081:8081"
+    depends_on:
+      - mongo-db
+
+  superset-db:
+    image: postgres:13
+    container_name: superset-db
+    environment:
+      POSTGRES_DB: superset
+      POSTGRES_PASSWORD: superset
+      POSTGRES_USER: superset
+    volumes:
+      - superset-db:/var/lib/postgresql/data
+  superset-cache:
+    image: redis:8.2.3-alpine3.22
+    container_name: superset-cache
+    volumes:
+      - superset-cache:/data
+
+  superset:
+    image: amancevice/superset:5.0.0
+    container_name: superset
+    depends_on:
+      - superset-db
+      - superset-cache
+    environment:
+      MAPBOX_API_KEY: ""
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./superset/superset_config.py:/etc/superset/superset_config.py 
+    #  docker exec -it superset superset-init
 volumes:
   clickhouse_data:
+  mongodb_data:
+  superset-db:
+  superset-cache:

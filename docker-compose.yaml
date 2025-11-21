@@ -14,6 +14,8 @@ services:
       - ./spark/conf/core-site.xml:/opt/spark/conf/core-site.xml
       - ./spark/conf/hdfs-site.xml:/opt/spark/conf/hdfs-site.xml
       - ./src:/opt/spark/src
+      # - ./spark/spark-jars:/opt/spark/jars
+      - ./spark/spark-jars/clickhouse-jdbc-shaded.jar:/opt/spark/jars/clickhouse-jdbc-shaded.jar
     command: "/opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host sparkMaster"
   
   sparkWorker:
@@ -31,6 +33,7 @@ services:
       - ./spark/conf/core-site.xml:/opt/spark/conf/core-site.xml
       - ./spark/conf/hdfs-site.xml:/opt/spark/conf/hdfs-site.xml
       - ./src:/opt/spark/src
+      - ./spark/spark-jars/clickhouse-jdbc-shaded.jar:/opt/spark/jars/clickhouse-jdbc-shaded.jar
     command: "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker --webui-port 8081 spark://sparkMaster:7077"
 
   nameNode:
@@ -181,7 +184,7 @@ services:
     container_name: clickhouse
     ports:
       - "8123:8123"
-      - "9001:9000"
+      - "9191:9191"
     environment:
       CLICKHOUSE_DB: it4931
       CLICKHOUSE_USER: it4931

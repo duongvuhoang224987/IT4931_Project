@@ -11,7 +11,7 @@ ENV PATH="$PATH:/opt/spark/bin"
 ENV IVY_HOME=/opt/spark/.ivy2
 
 WORKDIR /opt/spark/
-COPY ../requirements.txt .
+COPY spark-jars/requirements.txt .
 
 RUN apt-get update \
     && pip install --no-cache-dir -r requirements.txt

@@ -1,4 +1,5 @@
-dagster
+dagster==1.11.15
 dagster-webserver
 dagster-dg-cli
-pyspark
+pyspark==3.5.6
+docker>=7.0.0

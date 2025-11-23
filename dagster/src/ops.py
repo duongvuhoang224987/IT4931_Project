@@ -1,30 +1,46 @@
-from dagster import op, Out
-from pyspark.sql import SparkSession
-from datetime import datetime
+import docker
+from dagster import op, Out, Failure
 
 @op(out=Out())
-def load_parquet(context):
-    spark = SparkSession.builder.master("local[*]").appName("Dagster Batch").getOrCreate()
-
-    df = spark.read.parquet("data/raw/yellow_tripdata_2025-08.parquet")
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_path = f"data/transformed/nyc_taxi_loaded_{timestamp}.parquet"
-    df.write.mode("overwrite").parquet(output_path)
-
-    context.log.info(f"Data saved to {output_path}")
-    return output_path
-
-
-@op(out=Out())
-def transform_data(context, parquet_path: str):
-    spark = SparkSession.builder.getOrCreate()
-    df = spark.read.parquet(parquet_path)
-
-    result = df.groupBy("passenger_count").avg("fare_amount")
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    result_path = f"data/transformed/nyc_taxi_transformed_{timestamp}.parquet"
-
-    result.write.mode("overwrite").parquet(result_path)
-    context.log.info(f"Transformed data saved to {result_path}")
-    return result_path
+def run_star_schema_transform(context):
+    """
+    Submit the star schema transformation Spark job via the Spark Master container.
+    """
+    spark_job_path = "/opt/spark/src/spark_jobs/star_schema_transform.py"
+    
+    # Build spark-submit command
+    spark_cmd = [
+        "/opt/spark/bin/spark-submit",
+        "--master", "spark://sparkMaster:7077",
+        "--deploy-mode", "client",
+        "--conf", "spark.sql.legacy.timeParserPolicy=LEGACY",
+        "--jars", "/opt/spark/jars/clickhouse-jdbc-shaded.jar",
+        spark_job_path
+    ]
+    
+    context.log.info(f"Executing Spark job in sparkMaster container: {' '.join(spark_cmd)}")
+    
+    try:
+        client = docker.from_env()
+        container = client.containers.get('sparkMaster')
+        
+        result = container.exec_run(
+            cmd=spark_cmd,
+            stream=True
+        )
+        
+        # Stream output
+        output = ""
+        for chunk in result.output:
+            chunk_str = chunk.decode('utf-8')
+            output += chunk_str
+            context.log.info(chunk_str.rstrip())
+        
+        return "Star schema transformation completed successfully"
+        
+    except docker.errors.NotFound:
+        context.log.error("sparkMaster container not found")
+        raise Failure("sparkMaster container not found")
+    except Exception as e:
+        context.log.error(f"Spark job failed: {str(e)}")
+        raise Failure(f"Spark job failed: {str(e)}")

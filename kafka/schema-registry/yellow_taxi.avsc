@@ -1,0 +1,34 @@
+{
+  "type": "record",
+  "name": "YellowTaxi",
+  "namespace": "com.it4931.project.messages",
+  "fields": [
+    {"name": "VendorID", "type": ["null", "int"]},
+
+    {"name": "tpep_pickup_datetime", "type": ["null", "string"]},
+    {"name": "tpep_dropoff_datetime", "type": ["null", "string"]},
+
+    {"name": "passenger_count", "type": ["null", "int"]},
+    {"name": "trip_distance", "type": ["null", "float"]},
+
+    {"name": "RatecodeID", "type": ["null", "int"]},
+    {"name": "store_and_fwd_flag", "type": ["null", "string"]},
+
+    {"name": "PULocationID", "type": ["null", "int"]},
+    {"name": "DOLocationID", "type": ["null", "int"]},
+
+    {"name": "payment_type", "type": ["null", "int"]},
+
+    {"name": "fare_amount", "type": ["null", "float"]},
+    {"name": "extra", "type": ["null", "float"]},
+    {"name": "mta_tax", "type": ["null", "float"]},
+    {"name": "tip_amount", "type": ["null", "float"]},
+    {"name": "tolls_amount", "type": ["null", "float"]},
+    {"name": "improvement_surcharge", "type": ["null", "float"]},
+    {"name": "total_amount", "type": ["null", "float"]},
+
+    {"name": "congestion_surcharge", "type": ["null", "float"]},
+    {"name": "airport_fee", "type": ["null", "float"]},
+    {"name": "cbd_congestion_fee", "type": ["null", "float"]}
+  ]
+}

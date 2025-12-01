@@ -14,14 +14,16 @@ services:
       - ./spark/conf/core-site.xml:/opt/spark/conf/core-site.xml
       - ./spark/conf/hdfs-site.xml:/opt/spark/conf/hdfs-site.xml
       - ./src:/opt/spark/src
+      # - ./spark/spark-jars:/opt/spark/jars
+      - ./spark/spark-jars/clickhouse-jdbc-shaded.jar:/opt/spark/jars/clickhouse-jdbc-shaded.jar
     command: "/opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host sparkMaster"
-  
+
   sparkWorker:
     # image: apache/spark:${SPARK_VERSION}
     image: it4931-spark:400
     container_name: sparkWorker
     ports:
-      - "8081:8081" # Worker Web UI 
+      - "8081:8081" # Worker Web UI
     depends_on:
       - sparkMaster
     environment:
@@ -31,6 +33,7 @@ services:
       - ./spark/conf/core-site.xml:/opt/spark/conf/core-site.xml
       - ./spark/conf/hdfs-site.xml:/opt/spark/conf/hdfs-site.xml
       - ./src:/opt/spark/src
+      - ./spark/spark-jars/clickhouse-jdbc-shaded.jar:/opt/spark/jars/clickhouse-jdbc-shaded.jar
     command: "/opt/spark/bin/spark-class org.apache.spark.deploy.worker.Worker --webui-port 8081 spark://sparkMaster:7077"
 
   nameNode:
@@ -45,6 +48,7 @@ services:
       - ./hdfs/hdfs_namenode:/opt/hadoop/data/namenode
       - ./hdfs/conf:/opt/hadoop/etc/hadoop
       - ./hdfs/start-hdfs.sh:/start-hdfs.sh
+      - ./data:/data
     ports:
       - "9870:9870"
       - "9000:9000"
@@ -78,7 +82,7 @@ services:
       KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
       KAFKA_PROCESS_ROLES: 'broker,controller'
       # Config for Listeners
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT
       KAFKA_LISTENERS: INTERNAL://broker01:9092,CONTROLLER://broker01:9093,CLIENT://broker01:9094
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker01:9092,CLIENT://localhost:9094
@@ -91,8 +95,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
-      CONFLUENT_METRICS_ENABLE: 'false'
-      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      CONFLUENT_METRICS_ENABLE: "false"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     ports:
       - 9094:9094
 
@@ -100,13 +104,13 @@ services:
     image: confluentinc/cp-kafka:${KAFKA_VERSION}
     container_name: broker02
     environment:
-    # For KRaft mode
+      # For KRaft mode
       KAFKA_NODE_ID: 2
-      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
-      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@broker01:9093,2@broker02:9093'
-      KAFKA_PROCESS_ROLES: 'broker,controller'
-    # Config for Listeners
-      KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@broker01:9093,2@broker02:9093"
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      # Config for Listeners
+      KAFKA_INTER_BROKER_LISTENER_NAME: "INTERNAL"
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT # Map listener names to security protocols
       KAFKA_LISTENERS: INTERNAL://broker02:9092,CONTROLLER://broker02:9093,CLIENT://broker02:9095    # 9092 for inter-broker, 9093 for controller, 9094 for clients
       KAFKA_ADVERTISED_LISTENERS: INTERNAL://broker02:9092,CLIENT://localhost:9095
@@ -119,8 +123,8 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
-      CONFLUENT_METRICS_ENABLE: 'false'
-      CLUSTER_ID: 'MkU3OEVBNTcwNTJENDM2Qk'
+      CONFLUENT_METRICS_ENABLE: "false"
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     ports:
       - 9095:9095
 
@@ -146,7 +150,7 @@ services:
     ports:
       - 8083:8083
     environment:
-    # Required
+      # Required
       CONNECT_BOOTSTRAP_SERVERS: "broker01:9092,broker02:9092"
       CONNECT_GROUP_ID: "it4931"
       CONNECT_CONFIG_STORAGE_TOPIC: "_k-connect-config"
@@ -157,7 +161,7 @@ services:
       CONNECT_REST_ADVERTISED_HOST_NAME: "k-connect"
       CONNECT_REST_PORT: 8083
       CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/connectors
-    # ---------------------------------------------
+      # ---------------------------------------------
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
@@ -181,7 +185,7 @@ services:
     container_name: clickhouse
     ports:
       - "8123:8123"
-      - "9001:9000"
+      - "9191:9191"
     environment:
       CLICKHOUSE_DB: it4931
       CLICKHOUSE_USER: it4931
@@ -207,6 +211,26 @@ services:
       - ./hive/conf/hive-site.xml:/etc/hive/hive-site.xml
     ports:
       - "8082:8080"
+
+  dagster-batch:
+    build:
+      context: ./dagster
+      dockerfile: Dockerfile
+    container_name: dagster-batch
+    ports:
+      - "3000:3000"
+    environment:
+      - DAGSTER_HOME=/app
+      - SPARK_MASTER_URL=spark://sparkMaster:7077
+    volumes:
+      - ./dagster/src:/app/src
+      - ./dagster/data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock # Add this to allow docker commands
+    depends_on:
+      - sparkMaster
+      - sparkWorker
+      - clickhouse
+      - nameNode
       
   mongo-db:
     image: mongo:6.0

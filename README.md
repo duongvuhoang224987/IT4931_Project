@@ -1,4 +1,11 @@
 - Lưu ý: Khi muốn chạy lại sạch sẽ, xóa hết các container thì `docker compose down -v` là chưa đủ, còn cần thêm xóa các thư mục `/current` và file `in_use.lock` bên trong `/hdfs/hdfs_namenode/` và `/hdfs/hdfs_datanode/` (Do mount volumes. Chỉ xóa file va thư mục con, không xóa `/hdfs_namenode` và `/hdfs_datanode`)
+  - Có thể thực hiện bằng cách chạy `delete_data.sh` trong thư mục `/hdfs` (Chạy với PWD là /hdfs)
+
+### Batch Layer
+
+- Chuẩn bị data cho batch job: `copy_data_batchjob.sh` trong `/hdfs` (Chạy với PWD là /hdfs)
+
+### Speed Layer
 - Start các container:
 `docker compose up -d`
 - Tắt safemode của NameNode: 

@@ -1,3 +1,4 @@
+# nghiact_producer
 from pyspark.sql import SparkSession
 from pyspark.sql.avro.functions import from_avro
 from pyspark.sql.functions import col, expr, when, to_timestamp, window, count, date_format
@@ -6,7 +7,7 @@ import requests
 # BOOTSTRAP_SERVERS = "broker01:9094,broker02:9094"
 BOOTSTRAP_SERVERS = "broker01:9092,broker02:9092"
 SCHEMA_REGISTRY_URL = "http://schema-registry:8081"
-TOPIC = "test"
+TOPIC = "taxi-topic"
 
 avro_options = {
     "schema.registry.url": SCHEMA_REGISTRY_URL,
@@ -41,7 +42,7 @@ raw_des_df = df \
     .select(
     from_avro(
         col("avro_value"),
-        get_schema_from_SR("test-value")
+        get_schema_from_SR(f"{TOPIC}-value")
     ).alias("data")) \
     .select(col("data.*"))
 

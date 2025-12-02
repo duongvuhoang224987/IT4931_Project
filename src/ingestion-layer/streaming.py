@@ -4,6 +4,7 @@ from pyspark.sql.functions import col, concat_ws, date_format
 
 from confluent_kafka import avro
 from confluent_kafka.avro import AvroProducer
+from confluent_kafka.admin import AdminClient, NewTopic
 from datetime import datetime
 
 
@@ -17,12 +18,12 @@ VALUE_SCHEMA_STR = """
 
     {
       "name": "tpep_pickup_datetime",
-      "type": ["null", { "type": "long", "logicalType": "timestamp-micros" }],
+      "type": ["null", { "type": "long", "logicalType": "timestamp-millis" }],
       "default": null
     },
     {
       "name": "tpep_dropoff_datetime",
-      "type": ["null", { "type": "long", "logicalType": "timestamp-micros" }],
+      "type": ["null", { "type": "long", "logicalType": "timestamp-millis" }],
       "default": null
     },
 
@@ -65,6 +66,18 @@ def parse_args():
                     help="URL Schema Registry, mặc định: http://schema-registry:8081")
     return ap.parse_args()
 
+NUM_PARTITIONS = 12
+def get_month_partition(record, num_partitions=NUM_PARTITIONS):
+    ts = record.get("tpep_pickup_datetime")
+
+    if isinstance(ts, datetime):
+        month = ts.month
+    elif ts is None:
+        return 0
+    else:
+        month = datetime.utcfromtimestamp(ts / 1000).month
+
+    return (month - 1) % num_partitions
 
 def make_send_batch_to_kafka_avro(bootstrap_servers: str,
                                   topic: str,
@@ -97,29 +110,27 @@ def make_send_batch_to_kafka_avro(bootstrap_servers: str,
         count = 0
         for row in df.toLocalIterator():
             record = row.asDict(recursive=True)
-
+            partition = get_month_partition(record)
             key_str = record.pop("key", None)
             if key_str is None:
-                # fallback: tự build key nếu thiếu
                 key_str = f"{record.get('VendorID')}"
 
-            # convert datetime -> long microseconds
             for ts_col in ("tpep_pickup_datetime", "tpep_dropoff_datetime"):
                 ts = record.get(ts_col)
                 if isinstance(ts, datetime):
-                    record[ts_col] = int(ts.timestamp() * 1_000_000)
+                    record[ts_col] = int(ts.timestamp() * 1000)
                 elif ts is None:
                     record[ts_col] = None
                 else:
                     record[ts_col] = int(ts)
 
-            # produce với retry khi queue full
             while True:
                 try:
                     producer.produce(
                         topic=topic,
                         key=key_str,
                         value=record,
+                        partition=partition
                     )
                     break
                 except BufferError:
@@ -139,6 +150,28 @@ def main():
              .appName("Streaming")
              .config("spark.streaming.stopGracefullyOnShutdown", True)
              .getOrCreate())
+
+    # conf = {
+    #     "bootstrap.servers": args.bootstrap,
+    # }
+    #
+    # admin = AdminClient(conf)
+    #
+    # topic_name = args.topic
+    # new_topic = NewTopic(
+    #     topic=topic_name,
+    #     num_partitions=12,  # Số partition bạn muốn
+    #     replication_factor=2,  # <= số broker
+    # )
+    #
+    # futures = admin.create_topics([new_topic])
+    #
+    # for t, f in futures.items():
+    #     try:
+    #         f.result()  # None nếu OK
+    #         print(f"Topic {t} created")
+    #     except Exception as e:
+    #         print(f"Failed to create topic {t}: {e}")
 
     schema = spark.read.parquet(args.input).schema
     src = spark \

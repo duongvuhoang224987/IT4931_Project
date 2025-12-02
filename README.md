@@ -27,3 +27,37 @@
     - Nhập tài khoản mật khẩu mong muốn
     - Đợi 1 khoảng thời gian cho container thiết lập, chạy ổn định
     - Truy cập superset UI tại `localhost:8088`, tạo các chart trên dashboard dựa theo hình ảnh
+
+
+
+## Rerun
+cd hdfs
+
+bash delete_data.sh
+
+docker compose up -d
+
+bash copy_data_batchjob.sh 
+
+docker exec -it clickhouse clickhouse-client
+
+Copy paste SQL code (`/src/spark_jobs/to_clickhouse.sql`)
+Truy cập `localhost:3000` (Dagster UI): Trigger batch job ("Launchpad")
+Có thể dùng Trino hoặc Clickhouse-client để truy vấn dữ liệu trong Clickhouse.
+
+docker exec -it superset superset-init
+
+Truy cập localhost:8088
+Connect Trino: trino://trino:@trino-qe:8080/mongodb
+Tạo Dashboard với các Chart thực hiện các câu SQL:
+  - Big Number Chart: `SELECT count(*) as num_trip from yellow_taxi_raw ;`
+  - Line Chart: `Select window_start, trip_count from yellow_window10min`
+  - Pie Chart: `SELECT vendorid, COUNT(*) AS trip_count FROM yellow_taxi_raw group by vendorid;`
+  - Bar Chart: `select cast(dolocationid as varchar) as doid, sum(total_amount) as total_revenue from mongodb.taxi.yellow_taxi_raw group by cast(dolocationid as varchar);`
+  - Scatter Plot: ``
+
+python ./src/yellow_taxi_producer.py
+
+docker exec -it sparkMaster bash
+
+spark-submit ./src/streaming_submit.py

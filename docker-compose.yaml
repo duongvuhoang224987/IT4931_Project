@@ -45,7 +45,7 @@ services:
       - TZ=Asia/Ho_Chi_Minh
       - HADOOP_HOME=/opt/hadoop
     volumes:
-      - ./hdfs/hdfs_namenode:/opt/hadoop/data/namenode
+      - namenode_data:/opt/hadoop/data/namenode
       - ./hdfs/conf:/opt/hadoop/etc/hadoop
       - ./hdfs/start-hdfs.sh:/start-hdfs.sh
       - ./data:/data
@@ -65,7 +65,7 @@ services:
       - TZ=Asia/Ho_Chi_Minh
       - HADOOP_HOME=/opt/hadoop
     volumes:
-      - ./hdfs/hdfs_datanode:/opt/hadoop/data/datanode
+      - datanode_data:/opt/hadoop/data/datanode
       - ./hdfs/conf:/opt/hadoop/etc/hadoop
       - ./hdfs/init-datanode.sh:/init-datanode.sh
     command: ["/bin/bash", "/init-datanode.sh"]
@@ -147,6 +147,7 @@ services:
     depends_on:
       - broker01
       - broker02
+      - nameNode
     ports:
       - 8083:8083
     environment:
@@ -161,12 +162,16 @@ services:
       CONNECT_REST_ADVERTISED_HOST_NAME: "k-connect"
       CONNECT_REST_PORT: 8083
       CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/connectors
+      # HDFS Configuration
+      HADOOP_CONF_DIR: /etc/hadoop
       # ---------------------------------------------
       CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
       CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
       CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
     volumes:
       - ./kafka/kafka-connect/connect-plugins:/connectors
+      - ./hdfs/conf/core-site.xml:/etc/hadoop/core-site.xml
+      - ./hdfs/conf/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
 
   schema-registry:
     image: confluentinc/cp-schema-registry:${KAFKA_VERSION}
@@ -288,3 +293,5 @@ volumes:
   mongodb_data:
   superset-db:
   superset-cache:
+  namenode_data:
+  datanode_data:

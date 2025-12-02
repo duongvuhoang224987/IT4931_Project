@@ -1,29 +1,54 @@
-- Lưu ý: Khi muốn chạy lại sạch sẽ, xóa hết các container thì `docker compose down -v` là chưa đủ, còn cần thêm xóa các thư mục `/current` và file `in_use.lock` bên trong `/hdfs/hdfs_namenode/` và `/hdfs/hdfs_datanode/` (Do mount volumes. Chỉ xóa file va thư mục con, không xóa `/hdfs_namenode` và `/hdfs_datanode`)
-  - Có thể thực hiện bằng cách chạy `delete_data.sh` trong thư mục `/hdfs` (Chạy với PWD là /hdfs)
+## Cài đặt
+Khởi động các Container: 
 
-### Batch Layer
-
-- Chuẩn bị data cho batch job: `copy_data_batchjob.sh` trong `/hdfs` (Chạy với PWD là /hdfs)
-
-### Speed Layer
-- Start các container:
 `docker compose up -d`
-- Tắt safemode của NameNode: 
 
-  - `docker exec -it nameNode bash`
-  - `hdfs dfsadmin -safemode leave`
+Cài đặt container Kafka:
 
-- Trên local, chạy `python ./src/yellow_taxi_producer.py` để có schema trên schema-registry (fix sau)
-- Submit Streaming job:
+    docker exec -it broker01 bash
 
-    - `docker exec -it sparkMaster bash`
-    - `spark-submit ./src/streaming_submit.py`
+    kafka-topics --create --topic taxi-topic --replication-factor 2 --partitions 3 --bootstrap-server broker01:9092`
 
-- Theo dõi table ghi thành công vào `mongo-db` qua `mongo-express`: truy cập `localhost:18081` có username: admin và password: pass
+Deploy Connector lên Kafka Connect:
 
-- Khởi tạo user của superset:
+    curl -X POST http://localhost:8083/connectors -H "Content-Type: application/json" -d @kafka/kafka-connect/configs/hdfs3-taxi-parquet.json
 
-    - `docker exec -it superset superset-init`
-    - Nhập tài khoản mật khẩu mong muốn
-    - Đợi 1 khoảng thời gian cho container thiết lập, chạy ổn định
-    - Truy cập superset UI tại `localhost:8088`, tạo các chart trên dashboard dựa theo hình ảnh
+Cài đặt container HDFS:
+    
+    cd hdfs
+    bash copy_data_batchjob.sh 
+
+Cài đặt container ClickHouse:
+    
+    docker exec -it clickhouse clickhouse-client
+
+Thực hiện code tại `/src/spark_jobs/to_clickhouse.sql` để tạo Database và các Table
+
+Có thể dùng Trino hoặc Clickhouse-client để truy vấn dữ liệu trong Clickhouse.
+
+Cài đặt container Superset:
+
+    docker exec -it superset superset-init
+
+Truy cập localhost:8088
+Connect Trino: trino://trino:@trino-qe:8080/mongodb
+Tạo Dashboard với các Chart bằng cách thực hiện các câu SQL trong `/superset/build_chart.sql`
+
+Tải sẵn các dependencies cần thiết cho Spark thực hiện các Job:
+
+    docker exec -it sparkMaster spark-sql 
+
+## Triển khai các job:
+
+Giả lập luồng dữ liệu liên tục:
+    
+    python ./src/ingestion/nghiact_producer.py
+
+Submit streaming job vào Spark Cluster:
+
+    docker exec -it sparkMaster spark-submit ./src/streaming_submit.py
+
+Chạy Batch Job:
+
+Truy cập `localhost:3000` (Dagster UI) để  trigger batch job ("Launchpad")
+

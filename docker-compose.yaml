@@ -98,7 +98,7 @@ services:
       CONFLUENT_METRICS_ENABLE: "false"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     ports:
-      - 9094:9094
+      - "9094:9094"
 
   broker02:
     image: confluentinc/cp-kafka:${KAFKA_VERSION}
@@ -126,52 +126,58 @@ services:
       CONFLUENT_METRICS_ENABLE: "false"
       CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
     ports:
-      - 9095:9095
+      - "9095:9095"
 
   k-ui:
     image: provectuslabs/kafka-ui:latest
     container_name: k-ui
     ports:
-      - 9090:8080
+      - "9090:8080"
     depends_on:
       - broker01
       - broker02
     environment:
       KAFKA_CLUSTERS_0_NAME: it4931-kafka-cluster
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker01:9092,broker02:9092
+      DYNAMIC_CONFIG_ENABLED: "true"
       KAFKA_CLUSTERS_0_METRICS_PORT: 9090
+    restart: unless-stopped
 
-  k-connect:
-    image: confluentinc/cp-kafka-connect:${KAFKA_VERSION}
-    container_name: k-connect
+  kafka-connect:
+    build: ./kafka/kafka-connect
+    image: kafka-connect-hdfs3:latest
+    container_name: kafka-connect
     depends_on:
       - broker01
       - broker02
       - nameNode
     ports:
-      - 8083:8083
+      - "8083:8083"
     environment:
-      # Required
       CONNECT_BOOTSTRAP_SERVERS: "broker01:9092,broker02:9092"
-      CONNECT_GROUP_ID: "it4931"
-      CONNECT_CONFIG_STORAGE_TOPIC: "_k-connect-config"
-      CONNECT_OFFSET_STORAGE_TOPIC: "_k-connect-offsets"
-      CONNECT_STATUS_STORAGE_TOPIC: "_k-connect-status"
-      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
-      CONNECT_VALUE_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
-      CONNECT_REST_ADVERTISED_HOST_NAME: "k-connect"
       CONNECT_REST_PORT: 8083
-      CONNECT_PLUGIN_PATH: /usr/share/java,/usr/share/confluent-hub-components,/connectors
-      # HDFS Configuration
-      HADOOP_CONF_DIR: /etc/hadoop
-      # ---------------------------------------------
-      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: "1"
-      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: "1"
-      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: "1"
+      CONNECT_REST_ADVERTISED_HOST_NAME: "kafka-connect"
+      CONNECT_GROUP_ID: "connect-cluster"
+
+      CONNECT_CONFIG_STORAGE_TOPIC: "__connect-config"
+      CONNECT_OFFSET_STORAGE_TOPIC: "__connect-offsets"
+      CONNECT_STATUS_STORAGE_TOPIC: "__connect-status"
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 2
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 2
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 2
+
+      CONNECT_KEY_CONVERTER: "org.apache.kafka.connect.storage.StringConverter"
+      CONNECT_VALUE_CONVERTER: "io.confluent.connect.avro.AvroConverter"
+      CONNECT_VALUE_CONVERTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+
+      CONNECT_CONFLUENT_TOPIC_BOOTSTRAP_SERVERS: "broker01:9092,broker02:9092"
+      CONNECT_CONFLUENT_TOPIC_REPLICATION_FACTOR: 2
+
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/usr/share/confluent-hub-components"
+
     volumes:
-      - ./kafka/kafka-connect/connect-plugins:/connectors
-      - ./hdfs/conf/core-site.xml:/etc/hadoop/core-site.xml
-      - ./hdfs/conf/hdfs-site.xml:/etc/hadoop/hdfs-site.xml
+      - connect-plugins:/usr/share/confluent-hub-components
+    restart: unless-stopped
 
   schema-registry:
     image: confluentinc/cp-schema-registry:${KAFKA_VERSION}
@@ -180,10 +186,12 @@ services:
       - broker01
       - broker02
     ports:
-      - 9091:8081
+      - "9091:8081"
     environment:
-      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_HOST_NAME: "schema-registry"
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: "broker01:9092,broker02:9092"
+      SCHAME_REGISTRY_LISTENERS: "http://0.0.0.0:9091"
+    restart: unless-stopped
 
   clickhouse:
     image: clickhouse/clickhouse-server:25.6-alpine

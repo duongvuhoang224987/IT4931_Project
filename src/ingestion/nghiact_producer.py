@@ -4,6 +4,7 @@ from pyspark.sql.functions import col, concat_ws, date_format
 
 from confluent_kafka import avro
 from confluent_kafka.avro import AvroProducer
+from confluent_kafka.admin import NewTopic, AdminClient
 from datetime import datetime
 
 
@@ -26,23 +27,23 @@ VALUE_SCHEMA_STR = """
       "default": null
     },
 
-    { "name": "passenger_count",       "type": ["null", "long"] },
-    { "name": "trip_distance",         "type": ["null", "double"]},
-    { "name": "RatecodeID",            "type": ["null", "long"] },
-    { "name": "store_and_fwd_flag",    "type": ["null", "string"]},
-    { "name": "PULocationID",          "type": ["null", "int"] },
-    { "name": "DOLocationID",          "type": ["null", "int"]  },
-    { "name": "payment_type",          "type": ["null", "long"] },
-    { "name": "fare_amount",           "type": ["null", "double"]},
-    { "name": "extra",                 "type": ["null", "double"]},
-    { "name": "mta_tax",               "type": ["null", "double"]},
-    { "name": "tip_amount",            "type": ["null", "double"]},
-    { "name": "tolls_amount",          "type": ["null", "double"]},
-    { "name": "improvement_surcharge", "type": ["null", "double"]},
-    { "name": "total_amount",          "type": ["null", "double"]},
-    { "name": "congestion_surcharge",  "type": ["null", "double"]},
-    { "name": "Airport_fee",           "type": ["null", "double"]},
-    { "name": "cbd_congestion_fee",    "type": ["null", "double"]}
+    { "name": "passenger_count",       "type": ["null", "long"],  "default": null },
+    { "name": "trip_distance",         "type": ["null", "double"],"default": null },
+    { "name": "RatecodeID",            "type": ["null", "long"],  "default": null },
+    { "name": "store_and_fwd_flag",    "type": ["null", "string"],"default": null },
+    { "name": "PULocationID",          "type": ["null", "int"],   "default": null },
+    { "name": "DOLocationID",          "type": ["null", "int"],   "default": null },
+    { "name": "payment_type",          "type": ["null", "long"],  "default": null },
+    { "name": "fare_amount",           "type": ["null", "double"],"default": null },
+    { "name": "extra",                 "type": ["null", "double"],"default": null },
+    { "name": "mta_tax",               "type": ["null", "double"],"default": null },
+    { "name": "tip_amount",            "type": ["null", "double"],"default": null },
+    { "name": "tolls_amount",          "type": ["null", "double"],"default": null },
+    { "name": "improvement_surcharge", "type": ["null", "double"],"default": null },
+    { "name": "total_amount",          "type": ["null", "double"],"default": null },
+    { "name": "congestion_surcharge",  "type": ["null", "double"],"default": null },
+    { "name": "Airport_fee",           "type": ["null", "double"],"default": null },
+    { "name": "cbd_congestion_fee",    "type": ["null", "double"],"default": null }
   ]
 }
 """
@@ -54,25 +55,29 @@ KEY_SCHEMA_STR = """
 
 
 def parse_args():
-    # ap = argparse.ArgumentParser()
-    # ap.add_argument("--bootstrap", required=True, help="Kafka bootstrap servers, ví dụ: broker01:9092,broker02:9092")
-    # ap.add_argument("--topic", required=True, help="Kafka topic name, ví dụ: taxi-avro-topic")
-    # ap.add_argument("--input", required=True, help="Path tới thư mục Parquet input")
-    # ap.add_argument("--checkpoint", required=True, help="Path tới thư mục checkpoint cho streaming")
-    # ap.add_argument("--max-files-per-trigger", type=int, default=1, help="Files per micro-batch")
-    # ap.add_argument("--latest-first", action="store_true", help="Process newest files first", default=True)
-    # ap.add_argument("--schema-registry-url", default="http://schema-registry:8081",
-    #                 help="URL Schema Registry, mặc định: http://schema-registry:8081")
-    return dict({
-        "bootstrap": "localhost:9094,localhost:9095",
-        "topic": "taxi-topic",
-        "input": "./data/yellow_taxi/2025",
-        "checkpoint": "/tmp/ingestion/producer",
-        "max_files_per_trigger": 1,
-        "latest_first": True,
-        "schema_registry_url": "http://localhost:9091"
-    })
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--bootstrap", required=True, help="Kafka bootstrap servers, ví dụ: broker01:9092,broker02:9092")
+    ap.add_argument("--topic", required=True, help="Kafka topic name, ví dụ: taxi-avro-topic")
+    ap.add_argument("--input", required=True, help="Path tới thư mục Parquet input")
+    ap.add_argument("--checkpoint", required=True, help="Path tới thư mục checkpoint cho streaming")
+    ap.add_argument("--max-files-per-trigger", type=int, default=1, help="Files per micro-batch")
+    ap.add_argument("--latest-first", action="store_true", help="Process newest files first", default=True)
+    ap.add_argument("--schema-registry-url", default="http://schema-registry:8081",
+                    help="URL Schema Registry, mặc định: http://schema-registry:8081")
+    return ap.parse_args()
 
+NUM_PARTITIONS = 12
+def get_month_partition(record, num_partitions=NUM_PARTITIONS):
+    ts = record.get("tpep_pickup_datetime")
+
+    if isinstance(ts, datetime):
+        month = ts.month
+    elif ts is None:
+        return 0
+    else:
+        month = datetime.utcfromtimestamp(ts / 1000).month
+
+    return (month - 1) % num_partitions
 
 def make_send_batch_to_kafka_avro(bootstrap_servers: str,
                                   topic: str,
@@ -84,7 +89,7 @@ def make_send_batch_to_kafka_avro(bootstrap_servers: str,
         "schema.registry.url": schema_registry_url,
         "queue.buffering.max.messages": 500000,
         "queue.buffering.max.kbytes": 1048576,
-        "batch.num.messages": 2000,
+        "batch.num.messages": 5000,
         "linger.ms": 50,
     }
 
@@ -105,29 +110,27 @@ def make_send_batch_to_kafka_avro(bootstrap_servers: str,
         count = 0
         for row in df.toLocalIterator():
             record = row.asDict(recursive=True)
-
+            partition = get_month_partition(record)
             key_str = record.pop("key", None)
             if key_str is None:
-                # fallback: tự build key nếu thiếu
                 key_str = f"{record.get('VendorID')}"
 
-            # convert datetime -> long milliseconds
             for ts_col in ("tpep_pickup_datetime", "tpep_dropoff_datetime"):
                 ts = record.get(ts_col)
                 if isinstance(ts, datetime):
-                    record[ts_col] = int(ts.timestamp() * 1_000)
+                    record[ts_col] = int(ts.timestamp() * 1000)
                 elif ts is None:
                     record[ts_col] = None
                 else:
                     record[ts_col] = int(ts)
 
-            # produce với retry khi queue full
             while True:
                 try:
                     producer.produce(
                         topic=topic,
                         key=key_str,
                         value=record,
+                        partition=partition
                     )
                     break
                 except BufferError:
@@ -148,14 +151,36 @@ def main():
              .config("spark.streaming.stopGracefullyOnShutdown", True)
              .getOrCreate())
 
-    schema = spark.read.parquet(args["input"]).schema
+    conf = {
+        "bootstrap.servers": args.bootstrap,
+    }
+
+    admin = AdminClient(conf)
+
+    topic_name = args.topic
+    new_topic = NewTopic(
+        topic=topic_name,
+        num_partitions=12,
+        replication_factor=2,
+    )
+
+    futures = admin.create_topics([new_topic])
+
+    for t, f in futures.items():
+        try:
+            f.result()  # None nếu OK
+            print(f"Topic {t} created")
+        except Exception as e:
+            print(f"Failed to create topic {t}: {e}")
+
+    schema = spark.read.parquet(args.input).schema
     src = spark \
         .readStream \
         .schema(schema) \
         .format("parquet") \
-        .option("maxFilesPerTrigger", str(args["max_files_per_trigger"])) \
-        .option("maxBytesPerTrigger", "16m") \
-        .option("latestFirst", str(bool(args["latest_first"]))) .load(args["input"])
+        .option("maxFilesPerTrigger", str(args.max_files_per_trigger)) \
+        .option("maxBytesPerTrigger", "64m") \
+        .option("latestFirst", str(bool(args.latest_first))) .load(args.input)
 
     stream_with_key = (
         src.withColumn(
@@ -169,16 +194,16 @@ def main():
     )
 
     send_batch_fn = make_send_batch_to_kafka_avro(
-        bootstrap_servers=args["bootstrap"],
-        topic=args["topic"],
-        schema_registry_url=args["schema_registry_url"]
+        bootstrap_servers=args.bootstrap,
+        topic=args.topic,
+        schema_registry_url=args.schema_registry_url
     )
 
     query = (
         stream_with_key.writeStream
         .foreachBatch(send_batch_fn)
-        .option("checkpointLocation", args["checkpoint"])
-        .trigger(processingTime="10 seconds")
+        .option("checkpointLocation", args.checkpoint)
+        .trigger(processingTime="3 seconds")
         .start()
     )
 

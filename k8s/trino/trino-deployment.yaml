@@ -1,0 +1,69 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trino
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trino
+  template:
+    metadata:
+      labels:
+        app: trino
+    spec:
+      containers:
+        - name: trino
+          image: trinodb/trino:422
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "1000m"
+            limits:
+              memory: "6Gi"
+              cpu: "2000m"
+          env:
+            - name: TZ
+              value: Asia/Ho_Chi_Minh
+          ports:
+            - containerPort: 8080
+          volumeMounts:
+            # HDFS configs
+            - name: hdfs-config
+              mountPath: /etc/hadoop/core-site.xml
+              subPath: core-site.xml
+            - name: hdfs-config
+              mountPath: /etc/hadoop/hdfs-site.xml
+              subPath: hdfs-site.xml
+
+            # Trino main configs
+            - name: trino-config
+              mountPath: /etc/trino/config.properties
+              subPath: config.properties
+            - name: trino-config
+              mountPath: /etc/trino/jvm.config
+              subPath: jvm.config
+            - name: trino-config
+              mountPath: /etc/trino/node.properties
+              subPath: node.properties
+
+            # Trino catalogs
+            - name: trino-config
+              mountPath: /etc/trino/catalog/mongodb.properties
+              subPath: mongodb.properties
+
+            # Data directory
+            - name: trino-data
+              mountPath: /data/trino
+      volumes:
+        - name: hdfs-config
+          configMap:
+            name: hdfs-config
+
+        - name: trino-config
+          configMap:
+            name: trino-config
+
+        - name: trino-data
+          persistentVolumeClaim:
+            claimName: trino-pvc

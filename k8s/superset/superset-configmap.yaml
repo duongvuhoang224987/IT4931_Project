@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: superset-config
+data:
+  postgres-db: superset
+  postgres-user: superset
+  postgres-password: superset
+  mapbox-api-key: ""

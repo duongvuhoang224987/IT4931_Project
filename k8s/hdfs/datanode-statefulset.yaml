@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: datanode
+spec:
+  serviceName: datanode-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: datanode
+  template:
+    metadata:
+      labels:
+        app: datanode
+    spec:
+      securityContext:  
+        runAsUser: 0    # Chạy container với root (UID 0) - phải chạy quyền root mới có thể  chmod vào pvc
+        fsGroup: 0      # Set group ownership root
+      containers:
+        - name: datanode
+          image: apache/hadoop:3.4.1
+          env:
+            - name: TZ
+              value: Asia/Ho_Chi_Minh
+            - name: HADOOP_HOME
+              value: /opt/hadoop
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          volumeMounts:
+            - name: datanode-data
+              mountPath: /opt/hadoop/data/datanode
+            - name: hdfs-config
+              mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+              subPath: core-site.xml
+            - name: hdfs-config
+              mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
+              subPath: hdfs-site.xml
+            - name: hdfs-bashscript
+              mountPath: /init-datanode.sh
+              subPath: init-datanode.sh
+          ports:
+            - containerPort: 9866
+          command: ["/bin/bash", "/init-datanode.sh"]
+      volumes:
+        - name: hdfs-config
+          configMap:
+            name: hdfs-config 
+        - name: hdfs-bashscript
+          configMap:
+            name: hdfs-config 
+        - name: datanode-data
+          persistentVolumeClaim:
+            claimName: datanode-pvc

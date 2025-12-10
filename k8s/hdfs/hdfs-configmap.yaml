@@ -1,0 +1,62 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hdfs-config
+data:
+  core-site.xml: |
+    <?xml version="1.0" encoding="UTF-8"?>
+    <?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+    <configuration>
+        <property>
+            <name>fs.default.name</name>
+            <value>hdfs://namenode-service:9000</value>
+        </property>
+        <property>
+            <name>fs.defaultFS</name>
+            <value>hdfs://namenode-service:9000</value>
+        </property>
+    </configuration>
+
+  hdfs-site.xml: |
+    <configuration>
+      <property>
+        <name>dfs.replication</name>
+        <value>1</value>
+      </property>
+      <property>
+        <name>dfs.namenode.name.dir</name>
+        <value>/opt/hadoop/data/namenode</value>
+      </property>
+      <property>
+        <name>dfs.datanode.data.dir</name>
+        <value>/opt/hadoop/data/datanode</value>
+      </property>
+      <property>
+        <name>dfs.namenode.rpc-bind-host</name>
+        <value>0.0.0.0</value>
+      </property>
+      <property>
+        <name>dfs.namenode.servicerpc-bind-host</name>
+        <value>0.0.0.0</value>
+      </property>
+      <property>
+        <name>dfs.permissions</name>
+        <value>false</value>
+      </property>
+    </configuration>
+  
+  start-hdfs.sh: |  
+    #!/bin/bash
+    if [ ! -d "/opt/hadoop/data/namenode/current" ]; then
+        echo "Formatting NameNode..."
+        hdfs namenode -format
+    fi
+    hdfs namenode
+  
+  init-datanode.sh: |  
+    #!/bin/bash
+    rm -rf /opt/hadoop/data/datanode/*
+    chown -R hadoop:hadoop /opt/hadoop/data/datanode
+    chmod 755 /opt/hadoop/data/datanode
+    hdfs datanode
+

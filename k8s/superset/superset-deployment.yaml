@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: superset
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: superset
+  template:
+    metadata:
+      labels:
+        app: superset
+    spec:
+      containers:
+        - name: superset-db
+          image: postgres:13
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-config
+                  key: postgres-db
+            - name: POSTGRES_USER
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-config
+                  key: postgres-user
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-config
+                  key: postgres-password
+          ports:
+            - containerPort: 5432
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          volumeMounts:
+            - name: superset-db-data
+              mountPath: /var/lib/postgresql/data
+
+        - name: superset-cache
+          image: redis:8.2.3-alpine3.22
+          ports:
+            - containerPort: 6379
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "250m"
+          volumeMounts:
+            - name: superset-cache-data
+              mountPath: /data
+
+        - name: superset
+          image: amancevice/superset:5.0.0
+          env:
+            - name: MAPBOX_API_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: superset-config
+                  key: mapbox-api-key
+          ports:
+            - containerPort: 8088
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+
+      volumes:
+        - name: superset-db-data
+          persistentVolumeClaim:
+            claimName: superset-db-pvc
+        - name: superset-cache-data
+          persistentVolumeClaim:
+            claimName: superset-cache-pvc

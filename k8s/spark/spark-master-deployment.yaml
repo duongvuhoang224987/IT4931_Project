@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-master
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-master
+  template:
+    metadata:
+      labels:
+        app: spark-master
+    spec:
+      containers:
+        - name: spark-master
+          image: it4931-spark:400
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 7077
+            - containerPort: 8080
+          env:
+            - name: SPARK_MODE
+              value: master
+            - name: SPARK_MASTER_HOST
+              value: spark-master-service
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          volumeMounts:
+            - name: spark-config
+              mountPath: /opt/spark/conf/spark-defaults.conf
+              subPath: spark-defaults.conf
+            - name: hdfs-config
+              mountPath: /opt/spark/conf/core-site.xml
+              subPath: core-site.xml
+            - name: hdfs-config
+              mountPath: /opt/spark/conf/hdfs-site.xml
+              subPath: hdfs-site.xml
+          command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master", "--host", "0.0.0.0"]
+      volumes:
+        - name: spark-config
+          configMap:
+            name: spark-config
+        - name: hdfs-config
+          configMap:
+            name: hdfs-config

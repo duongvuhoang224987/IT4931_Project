@@ -1,0 +1,48 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spark-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spark-worker
+  template:
+    metadata:
+      labels:
+        app: spark-worker
+    spec:
+      containers:
+        - name: spark-worker
+          image: it4931-spark:400
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          env:
+            - name: SPARK_MASTER_URL
+              value: "spark://spark-master-service:7077"
+          resources:
+            requests:
+              memory: "5Gi"
+              cpu: "3000m"
+            limits:
+              memory: "6Gi"
+              cpu: "4000m"
+          volumeMounts:
+            - name: spark-config
+              mountPath: /opt/spark/conf/spark-defaults.conf
+              subPath: spark-defaults.conf
+            - name: hdfs-config
+              mountPath: /opt/spark/conf/core-site.xml
+              subPath: core-site.xml
+            - name: hdfs-config
+              mountPath: /opt/spark/conf/hdfs-site.xml
+              subPath: hdfs-site.xml
+          command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "--webui-port", "8081", "spark://spark-master-service:7077"]
+      volumes:
+        - name: spark-config
+          configMap:
+            name: spark-config
+        - name: hdfs-config
+          configMap:
+            name: hdfs-config

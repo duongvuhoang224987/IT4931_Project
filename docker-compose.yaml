@@ -198,6 +198,7 @@ services:
     volumes:
       # - ./clickhouse/config:/etc/clickhouse-server
       - clickhouse_data:/var/lib/clickhouse
+      - ./src/spark_jobs/to_clickhouse.sql:/etc/clickhouse-server/to_clickhouse.sql
       # - ./clickhouse/log:/var/log/clickhouse-server
     ulimits:
       nofile:

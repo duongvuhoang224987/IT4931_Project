@@ -7,6 +7,7 @@ import requests
 # BOOTSTRAP_SERVERS = "broker01:9094,broker02:9094"
 BOOTSTRAP_SERVERS = "broker01:9092,broker02:9092"
 SCHEMA_REGISTRY_URL = "http://schema-registry:8081"
+CLICKHOUSE_URL = "jdbc:clickhouse://clickhouse:8123/nyc_taxi_dw"
 TOPIC = "taxi-topic"
 
 avro_options = {
@@ -26,6 +27,8 @@ spark = SparkSession.builder \
     .config("spark.mongodb.write.connection.uri", "mongodb://root:root@mongo-db:27017/") \
     .config("spark.sql.session.timeZone", "America/New_York") \
     .getOrCreate()
+
+spark.sparkContext.setLogLevel("ERROR")
 
 print(">>>>>>>>>>>>>>>>>>>> START READ STREAM")
 df = spark \
@@ -59,6 +62,19 @@ tripCount = w_df.withWatermark("pickup_ts", "30 minutes") \
     col("trip_count")
 )
 
+location_df = spark.read \
+    .format("jdbc") \
+    .option("url", CLICKHOUSE_URL) \
+    .option("dbtable", "dim_location") \
+    .option("user", "it4931") \
+    .option("password", "it4931") \
+    .option("driver", "com.clickhouse.jdbc.ClickHouseDriver") \
+    .load()
+
+raw_des_df = raw_des_df.join(
+    location_df,
+    raw_des_df.PULocationID == location_df.location_id
+)
 
 print(">>>>>>>>>>>>>>>>>>>> WRITE RAW ")
 raw_query = raw_des_df \

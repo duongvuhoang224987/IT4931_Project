@@ -222,7 +222,7 @@ def main():
 
     print("🔵 Writing DimLocation to ClickHouse ...")
     dim_location.write \
-        .mode("append") \
+        .mode("overwrite") \
         .format("jdbc") \
         .option("url", clickhouse_url) \
         .option("dbtable", "nyc_taxi_dw.dim_location") \

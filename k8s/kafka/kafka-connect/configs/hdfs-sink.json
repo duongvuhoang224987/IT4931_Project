@@ -1,0 +1,16 @@
+{
+    "name": "hdfs3-sink-connector",
+    "config": {
+        "connector.class": "io.confluent.connect.hdfs3.Hdfs3SinkConnector",
+        "tasks.max": "1",
+        "topics": "test",               
+        "topics.dir": "/kafka_ingestion/test",                   
+        "hdfs.url": "hdfs://nameNode:9000",
+        "flush.size": "1",
+        "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "value.converter": "org.apache.kafka.connect.storage.StringConverter",
+        "confluent.topic.bootstrap.servers": "broker01:9092,broker02:9092",
+        "confluent.topic.replication.factor": "1",
+        "format.class":"io.confluent.connect.hdfs3.string.StringFormat"
+    }
+}

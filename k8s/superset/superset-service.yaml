@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: superset-service
+spec:
+  selector:
+    app: superset
+  ports:
+    - name: superset-webui
+      port: 8088
+      targetPort: 8088
+      nodePort: 30088
+  type: NodePort

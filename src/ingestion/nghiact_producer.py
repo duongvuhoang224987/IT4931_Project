@@ -10,7 +10,7 @@ from datetime import datetime
 VALUE_SCHEMA_STR = """
 {
   "type": "record",
-  "name": "YellowTripdata2025_01",
+  "name": "YellowTripdata",
   "namespace": "com.example.taxi",
   "fields": [
     { "name": "VendorID",              "type": ["null", "int"],   "default": null },
@@ -54,24 +54,16 @@ KEY_SCHEMA_STR = """
 
 
 def parse_args():
-    # ap = argparse.ArgumentParser()
-    # ap.add_argument("--bootstrap", required=True, help="Kafka bootstrap servers, ví dụ: broker01:9092,broker02:9092")
-    # ap.add_argument("--topic", required=True, help="Kafka topic name, ví dụ: taxi-avro-topic")
-    # ap.add_argument("--input", required=True, help="Path tới thư mục Parquet input")
-    # ap.add_argument("--checkpoint", required=True, help="Path tới thư mục checkpoint cho streaming")
-    # ap.add_argument("--max-files-per-trigger", type=int, default=1, help="Files per micro-batch")
-    # ap.add_argument("--latest-first", action="store_true", help="Process newest files first", default=True)
-    # ap.add_argument("--schema-registry-url", default="http://schema-registry:8081",
-    #                 help="URL Schema Registry, mặc định: http://schema-registry:8081")
     return dict({
-        "bootstrap": "localhost:9094,localhost:9095",
+        "bootstrap": "localhost:9095",
         "topic": "taxi-topic",
         "input": "./data/yellow_taxi/2025",
         "checkpoint": "/tmp/ingestion/producer",
         "max_files_per_trigger": 1,
         "latest_first": True,
-        "schema_registry_url": "http://localhost:9091"
+        "schema_registry_url": "http://192.168.49.2:30818"
     })
+# kubectl port-forward k-broker-0 9094:9095 & kubectl port-forward k-broker-1 9095:9095
 
 
 def make_send_batch_to_kafka_avro(bootstrap_servers: str,

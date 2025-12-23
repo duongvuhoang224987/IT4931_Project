@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: namenode-service
+spec:
+  selector:
+    app: namenode
+  ports:
+    - name: namenode-ipc
+      port: 9000
+      targetPort: 9000
+      nodePort: 30009
+    - name: hdfs-webui
+      port: 9870
+      targetPort: 9870
+      nodePort: 30087
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: datanode-service
+spec:
+  selector:
+    app: datanode
+  ports:
+    - port: 9866
+      targetPort: 9866
+  type: ClusterIP

@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k-ui
+  template:
+    metadata:
+      labels:
+        app: k-ui
+    spec:
+      containers:
+        - name: k-ui
+          image: provectuslabs/kafka-ui:latest
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "256Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          ports:
+            - containerPort: 8080
+          env:
+            - name: KAFKA_CLUSTERS_0_NAME
+              value: "it4931-kafka-cluster"
+            - name: KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS
+              value: "k-broker-0.k-broker-svc:9094,k-broker-1.k-broker-svc:9094"
+            - name: KAFKA_CLUSTERS_0_METRICS_PORT
+              value: "9090"

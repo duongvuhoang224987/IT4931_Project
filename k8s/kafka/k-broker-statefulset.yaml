@@ -1,0 +1,91 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: k-broker
+spec:
+  serviceName: k-broker-svc
+  replicas: 2
+  selector:
+    matchLabels:
+      app: k-broker
+  template:
+    metadata:
+      labels:
+        app: k-broker
+    spec:
+      containers:
+        - name: k-broker
+          image: confluentinc/cp-kafka:7.5.10
+          command:
+            - bash
+            - -c
+            - |
+              # Extract pod ordinal from hostname (k-broker-0 -> 0, k-broker-1 -> 1)
+              export KAFKA_NODE_ID=${HOSTNAME##*-}
+
+              # Set advertised listeners:
+              # - INTERNAL: for inter-broker communication
+              # - CLIENT: for services inside K8s (Kafka Connect, Schema Registry)
+              # - EXTERNAL: for local producer outside K8s
+              export KAFKA_ADVERTISED_LISTENERS="INTERNAL://${HOSTNAME}.k-broker-svc:9092,CLIENT://${HOSTNAME}.k-broker-svc:9094,EXTERNAL://localhost:9095"
+
+              # Start Kafka
+              /etc/confluent/docker/run
+          ports:
+            - containerPort: 9092
+            - containerPort: 9093
+            - containerPort: 9094
+            - containerPort: 9095
+            - containerPort: 9090
+          env:
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: "CONTROLLER"
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: "0@k-broker-0.k-broker-svc:9093,1@k-broker-1.k-broker-svc:9093"
+            - name: KAFKA_PROCESS_ROLES
+              value: "broker,controller"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: "INTERNAL"
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT,CLIENT:PLAINTEXT,EXTERNAL:PLAINTEXT"
+            - name: KAFKA_LISTENERS
+              value: "INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093,CLIENT://0.0.0.0:9094,EXTERNAL://0.0.0.0:9095"
+            - name: KAFKA_JMX_PORT
+              value: "9090"
+            - name: KAFKA_LOG_DIRS
+              value: "/var/log/kafka"
+            - name: KAFKA_NUM_PARTITIONS
+              value: "2"
+            - name: KAFKA_AUTO_CREATE_TOPICS_ENABLE
+              value: "true"
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: "1"
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: "1"
+            - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+              value: "100"
+            - name: CONFLUENT_METRICS_ENABLE
+              value: "false"
+            - name: CLUSTER_ID
+              value: "MkU3OEVBNTcwNTJENDM2Qk"
+          volumeMounts:
+            - name: k-broker-data
+              mountPath: /var/log/kafka
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "1Gi"
+            limits:
+              cpu: "1000m"
+              memory: "2Gi"
+  volumeClaimTemplates: # Minikube tu dong cap phat
+    - metadata:
+        name: k-broker-data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi  

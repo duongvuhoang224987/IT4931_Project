@@ -1,0 +1,142 @@
+# PostgreSQL
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dagster-postgresql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dagster-postgresql
+  template:
+    metadata:
+      labels:
+        app: dagster-postgresql
+    spec:
+      containers:
+        - name: dagster-postgresql
+          image: postgres:15-alpine 
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: postgres-secret
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "dagster"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: data
+          emptyDir: {} 
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dagster
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dagster
+  template:
+    metadata:
+      labels:
+        app: dagster
+    spec:
+      initContainers:
+        # Đợi PostgreSQL ready
+        - name: wait-postgres
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -z dagster-postgresql-svc 5432; do echo waiting for postgres; sleep 2; done']  # FIX: Đúng service name
+      serviceAccountName: dagster-sa
+      containers:
+        # Webserver
+        - name: webserver
+          image: dagster:k8s  # Build Dockerfile rồi load minikube
+          imagePullPolicy: IfNotPresent
+          command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "/opt/dagster/workspace.yaml"] 
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DAGSTER_HOME
+              value: /opt/dagster
+            - name: DAGSTER_POSTGRES_HOST
+              value: dagster-postgresql-svc 
+            - name: DAGSTER_POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: DAGSTER_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: DAGSTER_POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "500m"
+            limits:
+              memory: "512Mi"
+              cpu: "700m"
+          readinessProbe:
+            httpGet:
+              path: /server_info
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /server_info
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
+
+        # Daemon (scheduler, sensor, run monitoring)
+        - name: daemon
+          image: dagster:k8s
+          imagePullPolicy: IfNotPresent
+          command: ["dagster-daemon", "run", "-w", "/opt/dagster/workspace.yaml"]
+          env:
+            - name: DAGSTER_HOME
+              value: /opt/dagster
+            - name: DAGSTER_POSTGRES_HOST
+              value: dagster-postgresql-svc
+            - name: DAGSTER_POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: DAGSTER_POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: DAGSTER_POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "300m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"

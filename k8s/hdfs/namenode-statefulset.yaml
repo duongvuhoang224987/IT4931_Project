@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: namenode
+spec:
+  serviceName: namenode-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: namenode
+  template:
+    metadata:
+      labels:
+        app: namenode
+    spec:
+      containers:
+        - name: namenode
+          image: apache/hadoop:3.4.1
+          env:
+            - name: TZ
+              value: Asia/Ho_Chi_Minh
+            - name: HADOOP_HOME
+              value: /opt/hadoop
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: namenode-data
+              mountPath: /opt/hadoop/data/namenode
+            - name: hdfs-config
+              mountPath: /opt/hadoop/etc/hadoop/core-site.xml
+              subPath: core-site.xml
+            - name: hdfs-config
+              mountPath: /opt/hadoop/etc/hadoop/hdfs-site.xml
+              subPath: hdfs-site.xml
+            - name: hdfs-bashscript
+              mountPath: /start-hdfs.sh
+              subPath: start-hdfs.sh
+          ports:
+            - containerPort: 9870
+            - containerPort: 9000
+          command: ["/bin/bash", "/start-hdfs.sh"]
+      volumes:
+        - name: hdfs-config
+          configMap:
+            name: hdfs-config 
+        - name: hdfs-bashscript
+          configMap:
+            name: hdfs-config 
+        - name: namenode-data
+          persistentVolumeClaim:
+            claimName: namenode-pvc
+

@@ -1,0 +1,1 @@
+kubectl exec $(kubectl get pods -l app=spark-master -o jsonpath='{.items[0].metadata.name}') -it -- spark-submit ./src/stream_job/streaming_job.py

@@ -1,0 +1,35 @@
+{
+  "name": "hdfs3-taxi-parquet",
+  "config": {
+    "connector.class": "io.confluent.connect.hdfs3.Hdfs3SinkConnector",
+    "tasks.max": "1",
+
+    "topics": "taxi-topic",
+
+    "hdfs.url": "hdfs://namenode-service:9000",
+    "topics.dir": "/user/taxi/topics",
+    "logs.dir": "/user/taxi/logs",
+
+    "format.class": "io.confluent.connect.hdfs3.parquet.ParquetFormat",
+
+    "flush.size": "1000",
+    "rotate.interval.ms": "600000",
+
+    "partitioner.class": "io.confluent.connect.storage.partitioner.TimeBasedPartitioner",
+    "timestamp.extractor": "RecordField",
+    "timestamp.field": "tpep_pickup_datetime",
+    "partition.duration.ms": "86400000",
+    "path.format": "'year'=YYYY/'month'=MM/'day'=dd",
+    "locale": "en-US",
+    "timezone": "Asia/Ho_Chi_Minh",
+
+    "key.converter": "org.apache.kafka.connect.storage.StringConverter",
+    "value.converter": "io.confluent.connect.avro.AvroConverter",
+    "value.converter.schema.registry.url": "http://schema-registry-svc:8081",
+
+    "confluent.topic.bootstrap.servers": "k-broker-0.k-broker-svc:9094,k-broker-1.k-broker-svc:9094",
+    "confluent.topic.replication.factor": "2",
+
+    "schema.compatibility": "BACKWARD"
+  }
+}

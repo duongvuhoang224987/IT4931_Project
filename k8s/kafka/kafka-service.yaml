@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-broker-svc
+spec:
+  selector:
+    app: k-broker
+  ports:
+    - port: 9093
+      targetPort: 9093
+      name: controller
+    - port: 9092
+      targetPort: 9092
+      name: internal
+    - port: 9094
+      targetPort: 9094
+      name: client
+    - port: 9090
+      targetPort: 9090
+      name: jmx
+  clusterIP: None
+  type: ClusterIP 
+
+---
+apiVersion: v1
+kind: Service
+metadata: 
+  name: k-ui-svc
+spec:
+  selector:
+    app: k-ui
+  ports:
+    - name: k-ui
+      port: 8080
+      targetPort: 8080
+      nodePort: 30808
+  type: NodePort 
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: schema-registry-svc
+spec:
+  selector:
+    app: schema-registry
+  ports:
+  - port: 8081
+    targetPort: 8081
+    nodePort: 30818
+  type: NodePort
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: k-connect-svc
+spec:
+  selector:
+    app: k-connect
+  ports:
+    - name: k-connect-rest-api
+      port: 8083
+      targetPort: 8083
+      nodePort: 30838
+  type: NodePort

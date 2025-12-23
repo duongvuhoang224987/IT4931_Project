@@ -1,0 +1,23 @@
+minikube start --cpus=max --memory=max
+Setup components
+    bash ./setup/01-build-and-load-images.sh 
+    bash ./setup/02-deploy-services.sh 
+    bash ./setup/03-setup-hdfs.sh
+    bash ./setup/04-setup-kafka.sh
+    bash ./setup/05-setup-clickhouse.sh
+    bash ./setup/06-setup-mongo.sh
+    bash ./setup/07-setup-superset.sh
+
+Port Forward:
+    kubectl port-forward k-broker-0 9094:9095 & kubectl port-forward k-broker-1 9095:9095
+Producer:
+    python ./src/ingestion/nghiact_producer.py
+
+Submit Stream job:
+    kubectl exec $(kubectl get pods -l app=spark-master -o jsonpath='{.items[0].metadata.name}') -it -- spark-submit ./src/stream_job/streaming_job.py
+
+Kết nối Superset với Trino:
+    URI: trino://trino:/trino:8080/
+
+Lấy IP của Minikube:
+    minikube ip

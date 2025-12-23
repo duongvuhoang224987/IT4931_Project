@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+RUN pip install --no-cache-dir \
+    dagster \
+    dagster-webserver \
+    dagster-postgres \
+    kubernetes>=28.1.0 \
+    requests
+ENV DAGSTER_HOME=/opt/dagster
+
+COPY dagster_home/ $DAGSTER_HOME/
+COPY app/ /opt/dagster/app/
+
+ENV PYTHONPATH=/opt/dagster:${PYTHONPATH}
+
+WORKDIR /opt/dagster
+

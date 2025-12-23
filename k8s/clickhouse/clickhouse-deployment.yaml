@@ -1,0 +1,72 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse
+  labels:
+    app: clickhouse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: clickhouse
+  template:
+    metadata:
+      labels:
+        app: clickhouse
+    spec:
+      # Init container để set ulimits trước khi ClickHouse start
+      initContainers:
+      - name: set-ulimits
+        image: busybox:latest
+        command:
+        - sh
+        - -c
+        - |
+          echo "Setting ulimits for ClickHouse..."
+          ulimit -n 262144
+          echo "nofile soft: $(ulimit -Sn)"
+          echo "nofile hard: $(ulimit -Hn)"
+        securityContext:
+          privileged: true
+      containers:
+      - name: clickhouse
+        image: clickhouse/clickhouse-server:25.6-alpine
+        ports:
+        - containerPort: 8123
+          name: http
+        - containerPort: 9191
+          name: metrics
+        env:
+        - name: CLICKHOUSE_DB
+          value: "it4931"
+        - name: CLICKHOUSE_USER
+          value: "it4931"
+        - name: CLICKHOUSE_PASSWORD
+          value: "it4931"
+        volumeMounts:
+        - name: clickhouse-data
+          mountPath: /var/lib/clickhouse
+        - name: init-sql
+          mountPath: /etc/clickhouse-server/to_clickhouse.sql
+          subPath: to_clickhouse.sql
+        resources:
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+        securityContext:
+          capabilities:
+            add:
+            - IPC_LOCK      # Cho phép lock memory vào RAM (tránh swap)
+            - SYS_NICE      # Cho phép điều chỉnh process priority
+            - SYS_RESOURCE  # Cho phép override resource limits (ulimits)
+          # Note: Để ulimits hoạt động đầy đủ, cần set ở node level hoặc dùng privileged pod
+      volumes:
+      - name: clickhouse-data
+        persistentVolumeClaim:
+          claimName: clickhouse-svc
+      - name: init-sql
+        configMap:
+          name: clickhouse-init-sql

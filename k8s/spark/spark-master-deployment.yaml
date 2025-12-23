@@ -24,13 +24,17 @@ spec:
               value: master
             - name: SPARK_MASTER_HOST
               value: spark-master-service
+            - name: SPARK_LOCAL_HOSTNAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "250m"
-            limits:
-              memory: "1Gi"
+              memory: "2Gi"
               cpu: "500m"
+            limits:
+              memory: "3Gi"
+              cpu: "1000m"
           volumeMounts:
             - name: spark-config
               mountPath: /opt/spark/conf/spark-defaults.conf

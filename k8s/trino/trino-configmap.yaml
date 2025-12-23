@@ -27,8 +27,8 @@ data:
     connector.name=mongodb
     mongodb.connection-url=mongodb://root:root@mongo-service:27017/?authSource=admin
 
-  # clickhouse.properties: |
-  #   connector.name=clickhouse
-  #   connection-url=jdbc:clickhouse://clickhouse-service:8123/
-  #   connection-user=it4931
-  #   connection-password=it4931
+  clickhouse.properties: |
+    connector.name=clickhouse
+    connection-url=jdbc:clickhouse://clickhouse-svc:8123/
+    connection-user=it4931
+    connection-password=it4931

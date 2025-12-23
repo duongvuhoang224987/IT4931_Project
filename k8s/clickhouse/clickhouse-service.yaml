@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse-svc
+spec:
+  selector:
+    app: clickhouse
+  ports:
+  - port: 8123
+    targetPort: 8123
+    nodePort: 30123
+    name: ui
+  - port: 9191
+    targetPort: 9191
+    nodePort: 30019
+    name: ipc
+  type: NodePort

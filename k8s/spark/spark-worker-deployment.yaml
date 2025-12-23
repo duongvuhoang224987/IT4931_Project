@@ -23,11 +23,11 @@ spec:
               value: "spark://spark-master-service:7077"
           resources:
             requests:
-              memory: "5Gi"
-              cpu: "3000m"
+              memory: "2Gi"
+              cpu: "1000m"
             limits:
-              memory: "6Gi"
-              cpu: "4000m"
+              memory: "4Gi"
+              cpu: "2000m"
           volumeMounts:
             - name: spark-config
               mountPath: /opt/spark/conf/spark-defaults.conf

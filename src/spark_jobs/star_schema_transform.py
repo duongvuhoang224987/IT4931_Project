@@ -27,7 +27,7 @@ def main():
         .getOrCreate()
 
     # Connection string includes the database 'nyc_taxi_dw'
-    clickhouse_url = "jdbc:clickhouse://clickhouse:8123/nyc_taxi_dw"
+    clickhouse_url = "jdbc:clickhouse://clickhouse-svc:8123/nyc_taxi_dw"
     clickhouse_properties = {
         "user": "it4931",
         "password": "it4931",
@@ -35,7 +35,7 @@ def main():
     }
 
     print("🔵 Loading RAW data from HDFS ...")
-    df = spark.read.parquet("hdfs://nameNode:9000/user/it4931/yellow_taxi/2025")
+    df = spark.read.parquet("hdfs://namenode-service:9000/user/it4931/yellow_taxi/2025")
     
     # Limit for testing; remove this line in production
     df = df.limit(1_000_000) 
@@ -108,9 +108,6 @@ def main():
         when(col("is_weekend") == True, lit(1)).otherwise(lit(0)).cast("tinyint")
     )
     
-    dim_time.write.mode("overwrite").parquet("hdfs:///dw/dim_time/")
-    print("✔ DimTime saved to HDFS.")
-
     print("🔵 Writing DimTime to ClickHouse ...")
     dim_time.write \
         .mode("append") \
@@ -131,8 +128,6 @@ def main():
          (2, "VeriFone Inc")],
         ["vendor_id", "provider_name"]
     )
-    dim_vendor.write.mode("overwrite").parquet("hdfs:///dw/dim_vendor/")
-    print("✔ DimVendor saved to HDFS.")
 
     print("🔵 Writing DimVendor to ClickHouse ...")
     dim_vendor.write \
@@ -160,8 +155,6 @@ def main():
         ],
         ["payment_id", "payment_type_name", "description"]
     )
-    dim_payment.write.mode("overwrite").parquet("hdfs:///dw/dim_payment/")
-    print("✔ DimPayment saved to HDFS.")
 
     print("🔵 Writing DimPayment to ClickHouse ...")
     dim_payment.write \
@@ -191,8 +184,6 @@ def main():
         ],
         ["rate_code_id", "rate_code_name", "description"]
     )
-    dim_ratecode.write.mode("overwrite").parquet("hdfs:///dw/dim_ratecode/")
-    print("✔ DimRateCode saved to HDFS.")
 
     print("🔵 Writing DimRateCode to ClickHouse ...")
     dim_ratecode.write \
@@ -210,15 +201,13 @@ def main():
     # --- DimLocation ---
     print("🔵 Building DimLocation ...")
     # Ensure this CSV path exists on your HDFS
-    zone = spark.read.csv("hdfs:///user/it4931/taxi_zone_lookup.csv", header=True)
+    zone = spark.read.csv("hdfs://namenode-service:9000/user/it4931/taxi_zone_lookup.csv", header=True)
     dim_location = zone.select(
         col("LocationID").cast("int").alias("location_id"),
         col("Borough").alias("borough"),
         col("Zone").alias("zone"),
         col("service_zone")
     )
-    dim_location.write.mode("overwrite").parquet("hdfs:///dw/dim_location/")
-    print("✔ DimLocation saved to HDFS.")
 
     print("🔵 Writing DimLocation to ClickHouse ...")
     dim_location.write \
@@ -239,22 +228,16 @@ def main():
 
     print("🔵 Building Fact Table ...")
 
-    dim_time_df = spark.read.parquet("hdfs:///dw/dim_time/")
-    dim_vendor_df = spark.read.parquet("hdfs:///dw/dim_vendor/")
-    dim_payment_df = spark.read.parquet("hdfs:///dw/dim_payment/")
-    dim_ratecode_df = spark.read.parquet("hdfs:///dw/dim_ratecode/")
-    dim_location_df = spark.read.parquet("hdfs:///dw/dim_location/")
-
     # IMPORTANT: The alias names here must match the columns in your SQL table exactly.
     # Specifically, 'airport_fee' was 'Airport_fee' in raw data, but SQL uses 'airport_fee' (lowercase).
     fact = df \
-        .join(dim_vendor_df, df.VendorID == dim_vendor_df.vendor_id, "left") \
-        .join(dim_ratecode_df, df.RatecodeID == dim_ratecode_df.rate_code_id, "left") \
-        .join(dim_payment_df, df.payment_type == dim_payment_df.payment_id, "left") \
-        .join(dim_location_df.alias("pu"), df.PULocationID == col("pu.location_id"), "left") \
-        .join(dim_location_df.alias("do"), df.DOLocationID == col("do.location_id"), "left") \
-        .join(dim_time_df.alias("pt"), df.tpep_pickup_datetime == col("pt.timestamp_id"), "left") \
-        .join(dim_time_df.alias("dt"), df.tpep_dropoff_datetime == col("dt.timestamp_id"), "left") \
+        .join(dim_vendor, df.VendorID == dim_vendor.vendor_id, "left") \
+        .join(dim_ratecode, df.RatecodeID == dim_ratecode.rate_code_id, "left") \
+        .join(dim_payment, df.payment_type == dim_payment.payment_id, "left") \
+        .join(dim_location.alias("pu"), df.PULocationID == col("pu.location_id"), "left") \
+        .join(dim_location.alias("do"), df.DOLocationID == col("do.location_id"), "left") \
+        .join(dim_time.alias("pt"), df.tpep_pickup_datetime == col("pt.timestamp_id"), "left") \
+        .join(dim_time.alias("dt"), df.tpep_dropoff_datetime == col("dt.timestamp_id"), "left") \
         .select(
             monotonically_increasing_id().alias("fact_trip_sk"),
             col("pt.timestamp_id").alias("pickup_time_sk"),
@@ -287,9 +270,6 @@ def main():
 
             df["tpep_pickup_datetime"].alias("created_at_sk")
         )
-
-    fact.write.mode("overwrite").parquet("hdfs:///dw/fact_table/")
-    print("✔ Fact Table saved to HDFS!")
 
     print("🔵 Writing Fact Table to ClickHouse ...")
     fact.write \

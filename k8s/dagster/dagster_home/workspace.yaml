@@ -1,0 +1,5 @@
+load_from:
+  - python_file:
+      relative_path: "app/definitions.py"
+      location_name: spark_scheduler
+      working_directory: "/opt/dagster"

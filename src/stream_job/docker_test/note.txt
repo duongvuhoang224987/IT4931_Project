@@ -1,0 +1,53 @@
+Trong code Spark Structured Streaming của bạn, State Management được thể hiện ở nhiều chỗ. Tôi sẽ phân tích chi tiết:
+
+  1. Watermarking - Quản lý Late Data State
+
+  # streaming_submit_v2.py:51-53
+  tripCount = w_df.withWatermark("pickup_ts", "30 minutes") \
+      .groupBy(
+          window(col("pickup_ts"), "10 minutes").alias("w")
+      )
+  - Watermark (30 minutes) quản lý state của các event đến muộn
+  - Spark sẽ duy trì state trong 30 phút sau event time mới nhất
+  - Event muộn hơn 30 phút sẽ bị loại bỏ khỏi state
+
+  2. Window Aggregation - Stateful Computation
+
+  # streaming_submit_v2.py:52-55
+  .groupBy(window(col("pickup_ts"), "10 minutes").alias("w")) \
+  .agg(count("*").alias("trip_count"))
+  - groupBy với window tạo ra stateful aggregation
+  - Spark duy trì state cho mỗi window 10 phút
+  - State lưu số lượng trips trong mỗi window
+
+  3. Checkpoint Location - State Persistence
+
+  # streaming_submit_v2.py:67
+  .option("checkpointLocation", "/tmp/spark-mongo-checkpoint/raw")
+
+  # streaming_submit_v2.py:92
+  .option("checkpointLocation", "/tmp/spark-mongo-checkpoint/agg/")
+  - Checkpoint lưu metadata và state lên disk
+  - Cho phép recovery khi job bị fail
+  - State được persist để đảm bảo exactly-once semantics
+
+  4. Output Mode - State Output Strategy
+
+  # streaming_submit_v2.py:71
+  .outputMode("append")  # Cho raw data
+
+  # streaming_submit_v2.py:90
+  .outputMode("complete")  # Cho aggregation
+  - outputMode("complete") xuất toàn bộ state mỗi trigger (phù hợp cho aggregation)
+  - outputMode("append") chỉ xuất records mới (không cần maintain state)
+
+  ---
+  Tóm lại, State Management trong code của bạn chủ yếu ở:
+  - Dòng 51: Watermark management
+  - Dòng 52-55: Window-based stateful aggregation
+  - Dòng 67, 92: Checkpoint cho state persistence
+  - Dòng 90: Complete mode để output toàn bộ state
+
+
+
+----- Còn cần triển khai join stream

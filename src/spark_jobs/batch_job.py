@@ -151,7 +151,7 @@ def compute_vendor_performance(fact_df, dim_vendor_df, dim_time_df):
             round(avg("total_amount"), 2).alias("avg_fare")
         )
     
-    # Add daily ranking
+    # Daily ranking
     window_rank = Window.partitionBy("date").orderBy(col("daily_trips").desc())
     vendor_daily = vendor_daily \
         .withColumn("daily_rank", rank().over(window_rank)) \
@@ -258,7 +258,7 @@ def main():
     spark.sparkContext.setLogLevel("ERROR")
     
     # ClickHouse connection settings
-    clickhouse_url = "jdbc:clickhouse://clickhouse:8123/nyc_taxi_dw"
+    clickhouse_url = "jdbc:clickhouse://clickhouse-svc:8123/nyc_taxi_dw"
     clickhouse_properties = {
         "user": "it4931",
         "password": "it4931",

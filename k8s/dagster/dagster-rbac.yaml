@@ -1,0 +1,47 @@
+# RBAC Resources cho Dagster cấp quyền exec vào pods khác (ClickHouse, Spark)
+
+# ServiceAccount cho Dagster
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dagster-sa
+  namespace: default
+
+---
+# Role: Quyền truy cập pods trong namespace
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: dagster-pod-executor
+  namespace: default
+rules:
+# Quyền list và get pods (để tìm pod by label)
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "watch"]
+
+# Quyền exec vào pods (để chạy commands)
+- apiGroups: [""]
+  resources: ["pods/exec"]
+  verbs: ["create", "get"]
+
+# Quyền đọc logs (để debug)
+- apiGroups: [""]
+  resources: ["pods/log"]
+  verbs: ["get", "list"]
+
+---
+# RoleBinding: Gắn Role với ServiceAccount
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: dagster-pod-executor-binding
+  namespace: default
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: dagster-pod-executor
+subjects:
+- kind: ServiceAccount
+  name: dagster-sa
+  namespace: default

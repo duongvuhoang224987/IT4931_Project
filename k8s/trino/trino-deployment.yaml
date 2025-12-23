@@ -51,7 +51,9 @@ spec:
             - name: trino-config
               mountPath: /etc/trino/catalog/mongodb.properties
               subPath: mongodb.properties
-
+            - name: trino-config
+              mountPath: /etc/trino/catalog/clickhouse.properties
+              subPath: clickhouse.properties
             # Data directory
             - name: trino-data
               mountPath: /data/trino
